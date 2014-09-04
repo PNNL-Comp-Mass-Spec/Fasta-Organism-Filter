@@ -41,6 +41,7 @@ Public Class clsFilterFastaByOrganism
 
 #Region "Classwide Variables"
 
+	Protected Const MAX_PROTEIN_DESCRIPTION_LENGTH As Integer = 7500
 	
 #End Region
 
@@ -399,7 +400,13 @@ Public Class clsFilterFastaByOrganism
 
 		Const RESIDUES_PER_LINE As Integer = 60
 
-		swOutFile.WriteLine(">" & oReader.HeaderLine)
+		Dim headerLine = oReader.HeaderLine
+		Dim spaceIndex = headerLine.IndexOf(" "c)
+		If spaceIndex > 0 AndAlso headerLine.Length - spaceIndex >= MAX_PROTEIN_DESCRIPTION_LENGTH Then
+			headerLine = headerLine.Substring(0, spaceIndex) + " " + headerLine.Substring(spaceIndex + 1, MAX_PROTEIN_DESCRIPTION_LENGTH)
+		End If
+
+		swOutFile.WriteLine(">" & headerLine)
 
 		' Now write out the residues
 		Dim intStartIndex = 0
