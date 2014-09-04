@@ -107,8 +107,11 @@ Public Class clsFilterFastaByOrganism
 
 			ShowMessage("Loading the organism name filters from " & fiOrganismListFile.Name)
 
-			Dim lstTextFilters As List(Of String) = Nothing
-			Dim lstRegExFilters As List(Of Regex) = Nothing
+			' Keys in this dictionary are the organism names to filter on; values are meaningless integers
+			' The reason for using a dictionary is to provide fast lookups, but without case sensitivity
+			' I wanted to use a SortedSet but you can't define it without case sensitivity
+			Dim lstTextFilters As Dictionary(Of String, Integer) = Nothing
+			Dim lstRegExFilters As SortedSet(Of Regex) = Nothing
 
 			If Not ReadOrganismFilterFile(fiOrganismListFile, lstTextFilters, lstRegExFilters) Then
 				Return False
@@ -118,7 +121,6 @@ Public Class clsFilterFastaByOrganism
 				ShowErrorMessage("Organism list file is empty: " & fiOrganismListFile.FullName)
 				Return False
 			End If
-
 
 			If Not oReader.OpenFile(inputFilePath) Then
 				ShowErrorMessage("Error opening the fasta file; aborting")
@@ -140,7 +142,7 @@ Public Class clsFilterFastaByOrganism
 
 					Dim keepProtein = False
 
-					If lstTextFilters.Contains(organism) Then
+					If lstTextFilters.ContainsKey(organism) Then
 						keepProtein = True
 					Else
 						For Each regExSpec In lstRegExFilters
@@ -243,12 +245,35 @@ Public Class clsFilterFastaByOrganism
 
 			' Now write out the unique list of organisms
 			Using swOrganismSummary = New StreamWriter(New FileStream(organismSummaryFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
-				swOrganismSummary.WriteLine("Organism" & ControlChars.Tab & "Proteins")
+				swOrganismSummary.WriteLine(
+				  "Organism" & ControlChars.Tab &
+				  "Proteins" & ControlChars.Tab &
+				  "Genus" & ControlChars.Tab &
+				  "Species")
 
 				Dim organismsSorted = (From item In lstOrganisms Select item Order By item.Key)
 
+				Dim lstSquareBrackets = New Char() {"["c, "]"c}
+
 				For Each organism In organismsSorted
-					swOrganismSummary.WriteLine(organism.Key & ControlChars.Tab & organism.Value)
+
+					Dim genus As String = String.Empty
+					Dim species As String = String.Empty
+
+					Dim nameParts = organism.Key.Split(" "c).ToList()
+
+					If nameParts.Count > 0 Then
+						genus = nameParts(0).Trim(lstSquareBrackets)
+						If nameParts.Count > 1 Then
+							species = nameParts(1)
+						End If
+					End If
+
+					swOrganismSummary.WriteLine(
+					 organism.Key & ControlChars.Tab &
+					 organism.Value & ControlChars.Tab &
+					 genus & ControlChars.Tab &
+					 species)
 				Next
 
 			End Using
@@ -264,11 +289,11 @@ Public Class clsFilterFastaByOrganism
 
 	Private Function ReadOrganismFilterFile(
 	  ByVal fiOrganismListFile As FileInfo,
-	  <Out()> ByVal lstTextFilters As List(Of String),
-	  <Out()> ByVal lstRegExFilters As List(Of Regex)) As Boolean
+	  <Out()> ByRef lstTextFilters As Dictionary(Of String, Integer),
+	  <Out()> ByRef lstRegExFilters As SortedSet(Of Regex)) As Boolean
 
-		lstTextFilters = New List(Of String)(StringComparison.CurrentCultureIgnoreCase)
-		lstRegExFilters = New List(Of Regex)
+		lstTextFilters = New Dictionary(Of String, Integer)(StringComparison.CurrentCultureIgnoreCase)
+		lstRegExFilters = New SortedSet(Of Regex)
 
 		Dim lineNumber = 0
 
@@ -282,15 +307,15 @@ Public Class clsFilterFastaByOrganism
 					If String.IsNullOrWhiteSpace(dataLine) Then Continue While
 
 					' Check for "RegEx:"					
-					If dataLine.StartsWith("RegEx:") Then						
+					If dataLine.StartsWith("RegEx:") Then
 						Dim regExFilter = dataLine.Substring("RegEx:".Length)
 						If String.IsNullOrWhiteSpace(regExFilter) Then
 							ShowMessage("  Warning: empty RegEx filter defined on line " & lineNumber)
 							Continue While
 						End If
 						lstRegExFilters.Add(New Regex(regExFilter, RegexOptions.Compiled Or RegexOptions.IgnoreCase))
-					Else
-						lstTextFilters.Add(dataLine)
+					ElseIf Not lstTextFilters.ContainsKey(dataLine) Then
+						lstTextFilters.Add(dataLine, lineNumber)
 					End If
 
 				End While
@@ -374,7 +399,7 @@ Public Class clsFilterFastaByOrganism
 
 		Const RESIDUES_PER_LINE As Integer = 60
 
-		swOutFile.WriteLine(oReader.HeaderLine)
+		swOutFile.WriteLine(">" & oReader.HeaderLine)
 
 		' Now write out the residues
 		Dim intStartIndex = 0

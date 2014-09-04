@@ -132,33 +132,41 @@ Module modMain
 
 		Try
 
-			Console.WriteLine("This program reads a fasta file and finds the organism info defined in the protein description lines. " +
-			  "It optionally creates a filtered fasta file containing only the proteins of interest")
+			Console.WriteLine("This program reads a fasta file and finds the organism info " +
+				  "defined in the protein description lines. It optionally creates " +
+				  "a filtered fasta file containing only the proteins of interest.")
 			Console.WriteLine()
 
 			Console.WriteLine("Program syntax #1:" & ControlChars.NewLine & System.IO.Path.GetFileName(Reflection.Assembly.GetExecutingAssembly().Location) &
 			  " SourceFile.fasta [/O:OutputFolderPath] [/Map]")
+			Console.WriteLine()
 
 			Console.WriteLine("Program syntax #2:" & ControlChars.NewLine & System.IO.Path.GetFileName(Reflection.Assembly.GetExecutingAssembly().Location) &
 			  " SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputFolderPath]")
 
 			Console.WriteLine()
 
-			Console.WriteLine("The input file name is required. If the filename contains spaces, then surround it with double quotes")
+			Console.WriteLine("The input file name is required")
+			Console.WriteLine("Surround the filename with double quotes if it contains spaces")
 			Console.WriteLine()
-			Console.WriteLine("For the first syntax, will find the organisms present in the fasta file, creating an OrganismSummary file")
-			Console.WriteLine("Assumes the organism name is defined by the last set of square brackets in the protein description")
+			Console.WriteLine("For the first syntax, will find the organisms present in the fasta file, ")
+			Console.WriteLine("creating an OrganismSummary file. Assumes the organism name is defined ")
+			Console.WriteLine("by the last set of square brackets in the protein description.")
 			Console.WriteLine("")
-			Console.WriteLine("Use /Map to also create a file mapping protein name to organism name, with filename SourceFasta_ProteinOrganismMap.txt")
+			Console.WriteLine("Use /Map to also create a file mapping protein name to organism name")
+			Console.WriteLine("(filename SourceFasta_ProteinOrganismMap.txt")
 			Console.WriteLine()
-			Console.WriteLine("For the second syntax, use /Org to specify a text file listing organism names that should be used for filtering the fasta file")
-			Console.WriteLine("The program will create a new fasta file that only contains proteins from the organisms of interest")
+			Console.WriteLine("For the second syntax, use /Org to specify a text file listing organism names ")
+			Console.WriteLine("that should be used for filtering the fasta file. The program will create a ")
+			Console.WriteLine("new fasta file that only contains proteins from the organisms of interest")
 			Console.WriteLine()
 			Console.WriteLine("The OrganismListFile should have one organism name per line")
-			Console.WriteLine("Organism names that start with RegEx: will be treated as regular expressions for matching to protein descriptions")
-			Console.WriteLine("Otherwise, assumes that the protein name is the text betweeen the last set of square brackets in the protein description")
+			Console.WriteLine("Organism names that start with 'RegEx:' will be treated as regular expressions ")
+			Console.WriteLine("for matching to protein descriptions. Otherwise, assumes that the protein name ")
+			Console.WriteLine("is the text betweeen the last set of square brackets in the protein description")
 			Console.WriteLine()
-			Console.WriteLine("For both modes, use /O to specify an output folder.  If /O is missing, the output files will be created in the same folder as the source fasta file")
+			Console.WriteLine("For both modes, use /O to specify an output folder")
+			Console.WriteLine("If /O is missing, the output files will be created in the same folder as the source file")
 			Console.WriteLine()
 			Console.WriteLine("Program written by Matthew Monroe for the Department of Energy (PNNL, Richland, WA) in 2014")
 			Console.WriteLine("E-mail: matthew.monroe@pnnl.gov or matt@alchemistmatt.com")

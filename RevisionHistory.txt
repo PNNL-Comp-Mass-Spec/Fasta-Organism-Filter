@@ -1,0 +1,4 @@
+Fasta Organism Splitter
+
+Version 1.0.5360; September 4, 2014
+	- Initial release
