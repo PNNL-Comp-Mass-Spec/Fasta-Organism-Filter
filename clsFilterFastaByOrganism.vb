@@ -83,14 +83,60 @@ Public Class clsFilterFastaByOrganism
 
 	End Function
 
+    Public Function FilterFastaOneOrganism(ByVal inputFilePath As String, ByVal organismName As String, ByVal outputFolderPath As String) As Boolean
+
+        Try
+
+            Dim diOutputFolder As DirectoryInfo = Nothing
+            If Not ValidateInputAndOutputFolders(inputFilePath, outputFolderPath, diOutputFolder) Then
+                Return False
+            End If
+
+            If String.IsNullOrWhiteSpace(organismName) Then
+                ShowErrorMessage("Organism name is empty")
+                Return False
+            End If
+
+            ' Keys in this dictionary are the organism names to filter on; values are meaningless integers
+            ' The reason for using a dictionary is to provide fast lookups, but without case sensitivity
+            ' I wanted to use a SortedSet but you can't define it without case sensitivity
+            Dim lstTextFilters = New Dictionary(Of String, Integer)
+            Dim lstRegExFilters = New SortedSet(Of Regex)
+
+            If organismName.Contains("*") Then
+                lstRegExFilters.Add(New Regex(organismName.Replace("*", ".+"), RegexOptions.Compiled Or RegexOptions.IgnoreCase))
+            Else
+                lstTextFilters.Add(organismName, 0)
+            End If
+
+
+            Dim badChars = New List(Of Char) From {" "c, "\"c, "/"c, ":"c, "*"c, "?"c, "."c, "<"c, ">"c, "|"c}
+            Dim outputFileSuffix = "_"
+            For Each chCharacter In organismName
+                If badChars.Contains(chCharacter) Then
+                    outputFileSuffix &= "_"
+                Else
+                    outputFileSuffix &= chCharacter
+                End If
+            Next
+            outputFileSuffix = outputFileSuffix.TrimEnd("_"c)
+
+            Dim success = FilterFastaByOrganismWork(inputFilePath, diOutputFolder, lstTextFilters, lstRegExFilters, outputFileSuffix)
+
+            Return success
+
+        Catch ex As Exception
+            ShowErrorMessage("Error in FindOrganismsInFasta: " & ex.Message)
+            Return False
+        End Try
+
+    End Function
+
 	Public Function FilterFastaByOrganism(ByVal inputFilePath As String, ByVal organismListFile As String, ByVal outputFolderPath As String) As Boolean
 
 		Try
 
-			Dim oReader = New ProteinFileReader.FastaFileReader()
-			Dim intProteinsProcessed = 0
-
-			Dim diOutputFolder As DirectoryInfo = Nothing
+            Dim diOutputFolder As DirectoryInfo = Nothing
 			If Not ValidateInputAndOutputFolders(inputFilePath, outputFolderPath, diOutputFolder) Then
 				Return False
 			End If
@@ -123,59 +169,86 @@ Public Class clsFilterFastaByOrganism
 				Return False
 			End If
 
-			If Not oReader.OpenFile(inputFilePath) Then
-				ShowErrorMessage("Error opening the fasta file; aborting")
-				Return False
-			End If
+            Dim success = FilterFastaByOrganismWork(inputFilePath, diOutputFolder, lstTextFilters, lstRegExFilters)
 
-			ShowMessage("Parsing " & Path.GetFileName(inputFilePath))
-
-			Dim baseName = Path.GetFileNameWithoutExtension(inputFilePath)
-			Dim filteredFastaFilePath = Path.Combine(diOutputFolder.FullName, baseName & "_Filtered.fasta")
-
-			ShowMessage("Creating " & Path.GetFileName(filteredFastaFilePath))
-
-			Using swFilteredFasta = New StreamWriter(New FileStream(filteredFastaFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
-
-				While oReader.ReadNextProteinEntry()
-
-					Dim organism = ExtractOrganism(oReader.ProteinDescription)
-
-					Dim keepProtein = False
-
-					If lstTextFilters.ContainsKey(organism) Then
-						keepProtein = True
-					Else
-						For Each regExSpec In lstRegExFilters
-							If regExSpec.IsMatch(oReader.ProteinDescription) Then
-								keepProtein = True
-								Exit For
-							End If
-						Next
-					End If
-
-					If keepProtein Then
-						WriteFastaFileEntry(swFilteredFasta, oReader)
-					End If
-
-					intProteinsProcessed += 1
-					If intProteinsProcessed Mod 50000 = 0 Then
-						ReportProgress("Working: " & oReader.PercentFileProcessed & "% fasta")
-					End If
-
-				End While
-
-			End Using
+            Return success
 
 		Catch ex As Exception
 			ShowErrorMessage("Error in FindOrganismsInFasta: " & ex.Message)
 			Return False
 		End Try
 
-		Return True
-
-
 	End Function
+
+    Private Function FilterFastaByOrganismWork(
+     ByVal inputFilePath As String,
+     ByVal diOutputFolder As DirectoryInfo,
+     ByVal lstTextFilters As Dictionary(Of String, Integer),
+     ByVal lstRegExFilters As SortedSet(Of Regex)) As Boolean
+        Return FilterFastaByOrganismWork(inputFilePath, diOutputFolder, lstTextFilters, lstRegExFilters, "")
+    End Function
+
+    Private Function FilterFastaByOrganismWork(
+      ByVal inputFilePath As String,
+      ByVal diOutputFolder As DirectoryInfo,
+      ByVal lstTextFilters As Dictionary(Of String, Integer),
+      ByVal lstRegExFilters As SortedSet(Of Regex),
+      ByVal outputFileSuffix As String) As Boolean
+
+        Dim oReader = New ProteinFileReader.FastaFileReader()
+        Dim intProteinsProcessed = 0
+
+        If Not oReader.OpenFile(inputFilePath) Then
+            ShowErrorMessage("Error opening the fasta file; aborting")
+            Return False
+        End If
+
+        ShowMessage("Parsing " & Path.GetFileName(inputFilePath))
+
+        If String.IsNullOrWhiteSpace(outputFileSuffix) Then
+            outputFileSuffix = "_Filtered"
+        End If
+
+        Dim baseName = Path.GetFileNameWithoutExtension(inputFilePath)
+        Dim filteredFastaFilePath = Path.Combine(diOutputFolder.FullName, baseName & outputFileSuffix & ".fasta")
+
+        ShowMessage("Creating " & Path.GetFileName(filteredFastaFilePath))
+
+        Using swFilteredFasta = New StreamWriter(New FileStream(filteredFastaFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+
+            While oReader.ReadNextProteinEntry()
+
+                Dim organism = ExtractOrganism(oReader.ProteinDescription)
+
+                Dim keepProtein = False
+
+                If lstTextFilters.ContainsKey(organism) Then
+                    keepProtein = True
+                Else
+                    For Each regExSpec In lstRegExFilters
+                        If regExSpec.IsMatch(oReader.ProteinDescription) Then
+                            keepProtein = True
+                            Exit For
+                        End If
+                    Next
+                End If
+
+                If keepProtein Then
+                    WriteFastaFileEntry(swFilteredFasta, oReader)
+                End If
+
+                intProteinsProcessed += 1
+                If intProteinsProcessed Mod 50000 = 0 Then
+                    ReportProgress("Working: " & oReader.PercentFileProcessed & "% fasta")
+                End If
+
+            End While
+
+        End Using
+
+        Return True
+
+    End Function
 
 	Public Function FindOrganismsInFasta(ByVal inputFilePath As String, ByVal outputFolderPath As String) As Boolean
 

@@ -16,11 +16,12 @@
 '
 Module modMain
 
-	Public Const PROGRAM_DATE As String = "September 25, 2014"
+    Public Const PROGRAM_DATE As String = "October 30, 2014"
 
 	Private mInputFilePath As String
 	Private mOutputFolderPath As String
-	Private mOrganismListFile As String
+    Private mOrganismListFile As String
+    Private mOrganismName As String
 
 	Private mCreateProteinToOrganismMapFile As Boolean
 
@@ -32,7 +33,9 @@ Module modMain
 			' Set the default values
 			mInputFilePath = String.Empty
 
-			mOrganismListFile = String.Empty
+            mOrganismListFile = String.Empty
+
+            mOrganismName = String.Empty
 
 			Dim proceed = False
 			Dim oParseCommandLine As New clsParseCommandLine
@@ -58,11 +61,14 @@ Module modMain
 					''End If
 				End With
 
-				Dim success = False
-				If String.IsNullOrEmpty(mOrganismListFile) Then
-					success = oOrganismFilter.FindOrganismsInFasta(mInputFilePath, mOutputFolderPath)
-				Else
-					success = oOrganismFilter.FilterFastaByOrganism(mInputFilePath, mOrganismListFile, mOutputFolderPath)
+                Dim success = False
+
+                If Not String.IsNullOrEmpty(mOrganismName) Then
+                    success = oOrganismFilter.FilterFastaOneOrganism(mInputFilePath, mOrganismName, mOutputFolderPath)
+                ElseIf Not String.IsNullOrEmpty(mOrganismListFile) Then
+                    success = oOrganismFilter.FilterFastaByOrganism(mInputFilePath, mOrganismListFile, mOutputFolderPath)
+                Else
+                    success = oOrganismFilter.FindOrganismsInFasta(mInputFilePath, mOutputFolderPath)				
 				End If
 
 				If success Then
@@ -90,7 +96,7 @@ Module modMain
 		' Returns True if no problems; otherwise, returns false
 
 		Dim strValue As String = String.Empty
-		Dim strValidParameters() As String = New String() {"I", "Org", "O", "Map"}
+        Dim strValidParameters() As String = New String() {"I", "Org", "O", "Map", "Organism"}
 
 		Try
 			' Make sure no invalid parameters are present
@@ -109,6 +115,10 @@ Module modMain
 					If .RetrieveValueForParameter("Org", strValue) Then
 						mOrganismListFile = strValue
 					End If
+
+                    If .RetrieveValueForParameter("Organism", strValue) Then
+                        mOrganismName = strValue
+                    End If
 
 					If .RetrieveValueForParameter("O", strValue) Then
 						mOutputFolderPath = strValue
@@ -143,20 +153,23 @@ Module modMain
 
 			Console.WriteLine("Program syntax #2:" & ControlChars.NewLine & System.IO.Path.GetFileName(Reflection.Assembly.GetExecutingAssembly().Location) &
 			  " SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputFolderPath]")
+            Console.WriteLine()
 
+            Console.WriteLine("Program syntax #3:" & ControlChars.NewLine & System.IO.Path.GetFileName(Reflection.Assembly.GetExecutingAssembly().Location) &
+              " SourceFile.fasta /Organism:OrganismName [/O:OutputFolderPath]")
 			Console.WriteLine()
 
 			Console.WriteLine("The input file name is required")
 			Console.WriteLine("Surround the filename with double quotes if it contains spaces")
 			Console.WriteLine()
-			Console.WriteLine("For the first syntax, will find the organisms present in the fasta file, ")
+            Console.WriteLine("Syntax 1: will find the organisms present in the fasta file, ")
 			Console.WriteLine("creating an OrganismSummary file. Assumes the organism name is defined ")
 			Console.WriteLine("by the last set of square brackets in the protein description.")
 			Console.WriteLine("")
 			Console.WriteLine("Use /Map to also create a file mapping protein name to organism name")
 			Console.WriteLine("(filename SourceFasta_ProteinOrganismMap.txt")
 			Console.WriteLine()
-			Console.WriteLine("For the second syntax, use /Org to specify a text file listing organism names ")
+            Console.WriteLine("Syntax 2: use /Org to specify a text file listing organism names ")
 			Console.WriteLine("that should be used for filtering the fasta file. The program will create a ")
 			Console.WriteLine("new fasta file that only contains proteins from the organisms of interest")
 			Console.WriteLine()
@@ -165,7 +178,11 @@ Module modMain
 			Console.WriteLine("for matching to protein descriptions. Otherwise, assumes that the protein name ")
 			Console.WriteLine("is the text betweeen the last set of square brackets in the protein description")
 			Console.WriteLine()
-			Console.WriteLine("For both modes, use /O to specify an output folder")
+            Console.WriteLine("Syntax 3: use /Organism to specify a single organism name ")
+            Console.WriteLine("to be used for filtering the fasta file. The * character is treated as a wildcard. ")
+            Console.WriteLine("The program will create a new fasta file that only contains proteins from that organism")
+            Console.WriteLine()
+            Console.WriteLine("For all 3 modes, use /O to specify an output folder")
 			Console.WriteLine("If /O is missing, the output files will be created in the same folder as the source file")
 			Console.WriteLine()
 			Console.WriteLine("Program written by Matthew Monroe for the Department of Energy (PNNL, Richland, WA) in 2014")

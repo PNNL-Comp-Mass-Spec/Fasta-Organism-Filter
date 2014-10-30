@@ -1,5 +1,9 @@
 Fasta Organism Splitter
 
+Version 1.0.5416; October 30, 2014
+	- Added support for single organism filtering via the /Organism switch
+		- * is treated as a wildcard symbol
+
 Version 1.0.5360; September 25, 2014
 	- Updated ProteinFileReader.dll
 
