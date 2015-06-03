@@ -1,8 +1,20 @@
-Fasta Organism Splitter
+== Fasta Organism Filter ==
 
-This program reads a fasta file and finds the organism info defined 
-in the protein description lines. It optionally creates a filtered 
-fasta file containing only the proteins of interest.
+This program reads a FASTA file and filters the proteins 
+by either organism name or protein name.
+
+Mode A
+- Filter by organism name, as listed in the protein description
+   - Run the program without /Org or /Organism to create a text file listing the organisms present
+   - Optionally include /Map to create a file mapping protein name to organism
+   - Use the /Org switch to filter with an organism list file
+   - Use the /Organism switch to filter by organism name
+
+Mode B
+- Filter by protein name, as listed in a text file
+   - Use the /Prot list with a protein list file
+
+=== Filtering by Organism ===
 
 Program syntax #1:
 FastaOrganismFilter.exe SourceFile.fasta [/O:OutputFolderPath] [/Map]
@@ -39,6 +51,19 @@ The program will create a new fasta file that only contains proteins from that o
 For all 3 modes, use /O to specify an output folder
 If /O is missing, the output files will be created in the same folder as the source file
 
+
+=== Filtering by Protein Name ===
+
+Create a text file with a list of protein names to retrieve, then run this program 
+with the /Prot switch.  Note that you can use the Protein Digestion Simulator to
+convert the fasta file to a tab-delimited text file listing the protein names 
+and descriptions.  That program also has the option of excluding the 
+protein sequences from the output file (to reduce file size).
+
+Program syntax #4:
+FastaOrganismFilter.exe SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputFolderPath]
+
+
 -------------------------------------------------------------------------------
 Written by Matthew Monroe for the Department of Energy (PNNL, Richland, WA)
 Copyright 2014, Battelle Memorial Institute.  All Rights Reserved.
@@ -50,20 +75,3 @@ Website: http://omics.pnl.gov/ or http://www.sysbio.org/resources/staff/
 Licensed under the Apache License, Version 2.0; you may not use this file except 
 in compliance with the License.  You may obtain a copy of the License at 
 http://www.apache.org/licenses/LICENSE-2.0
-
-All publications that result from the use of this software should include 
-the following acknowledgment statement:
- Portions of this research were supported by the W.R. Wiley Environmental 
- Molecular Science Laboratory, a national scientific user facility sponsored 
- by the U.S. Department of Energy's Office of Biological and Environmental 
- Research and located at PNNL.  PNNL is operated by Battelle Memorial Institute 
- for the U.S. Department of Energy under contract DE-AC05-76RL0 1830.
-
-Notice: This computer software was prepared by Battelle Memorial Institute, 
-hereinafter the Contractor, under Contract No. DE-AC05-76RL0 1830 with the 
-Department of Energy (DOE).  All rights in the computer software are reserved 
-by DOE on behalf of the United States Government and the Contractor as 
-provided in the Contract.  NEITHER THE GOVERNMENT NOR THE CONTRACTOR MAKES ANY 
-WARRANTY, EXPRESS OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS 
-SOFTWARE.  This notice including this sentence must appear on any copies of 
-this computer software.

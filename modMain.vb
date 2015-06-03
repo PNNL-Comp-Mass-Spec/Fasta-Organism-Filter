@@ -7,7 +7,7 @@
 ' Copyright 2014, Battelle Memorial Institute.  All Rights Reserved.
 
 ' E-mail: matthew.monroe@pnnl.gov or matt@alchemistmatt.com
-' Website: http://omics.pnl.gov/ or http://www.sysbio.org/resources/staff/
+' Website: http://omics.pnl.gov/ or http://www.sysbio.org/resources/staff/ or http://panomics.pnnl.gov/
 ' -------------------------------------------------------------------------------
 ' 
 ' Licensed under the Apache License, Version 2.0; you may not use this file except
@@ -16,73 +16,79 @@
 '
 Module modMain
 
-    Public Const PROGRAM_DATE As String = "October 30, 2014"
+    Public Const PROGRAM_DATE As String = "June 3, 2015"
 
 	Private mInputFilePath As String
 	Private mOutputFolderPath As String
     Private mOrganismListFile As String
     Private mOrganismName As String
+    Private mProteinListFile As String
 
 	Private mCreateProteinToOrganismMapFile As Boolean
 
 	Public Function Main() As Integer
 
-		Dim returnCode As Integer = 0
+        Dim returnCode As Integer
 
-		Try
-			' Set the default values
-			mInputFilePath = String.Empty
+        Try
+            ' Set the default values
+            mInputFilePath = String.Empty
 
             mOrganismListFile = String.Empty
-
             mOrganismName = String.Empty
+            mProteinListFile = String.Empty
 
-			Dim proceed = False
-			Dim oParseCommandLine As New clsParseCommandLine
-			If oParseCommandLine.ParseCommandLine Then
-				If SetOptionsUsingCommandLineParameters(oParseCommandLine) Then proceed = True
-			End If
+            Dim proceed = False
+            Dim oParseCommandLine As New clsParseCommandLine
+            If oParseCommandLine.ParseCommandLine Then
+                If SetOptionsUsingCommandLineParameters(oParseCommandLine) Then proceed = True
+            End If
 
-			If Not proceed OrElse
-			   oParseCommandLine.NeedToShowHelp OrElse
-			   oParseCommandLine.ParameterCount + oParseCommandLine.NonSwitchParameterCount = 0 OrElse
-			   mInputFilePath.Length = 0 Then
-				ShowProgramHelp()
-				returnCode = -1
-			Else
-				Dim oOrganismFilter = New clsFilterFastaByOrganism()
+            If Not proceed OrElse
+               oParseCommandLine.NeedToShowHelp OrElse
+               oParseCommandLine.ParameterCount + oParseCommandLine.NonSwitchParameterCount = 0 OrElse
+               mInputFilePath.Length = 0 Then
+                ShowProgramHelp()
+                returnCode = -1
+            Else
+                Dim oOrganismFilter = New clsFilterFastaByOrganism()
 
-				With oOrganismFilter
+                With oOrganismFilter
 
-					.CreateProteinToOrganismMapFile = mCreateProteinToOrganismMapFile
+                    .CreateProteinToOrganismMapFile = mCreateProteinToOrganismMapFile
 
-					''If Not mParameterFilePath Is Nothing AndAlso mParameterFilePath.Length > 0 Then
-					''    .LoadParameterFileSettings(mParameterFilePath)
-					''End If
-				End With
+                    ''If Not mParameterFilePath Is Nothing AndAlso mParameterFilePath.Length > 0 Then
+                    ''    .LoadParameterFileSettings(mParameterFilePath)
+                    ''End If
+                End With
 
                 Dim success = False
 
                 If Not String.IsNullOrEmpty(mOrganismName) Then
                     success = oOrganismFilter.FilterFastaOneOrganism(mInputFilePath, mOrganismName, mOutputFolderPath)
+
                 ElseIf Not String.IsNullOrEmpty(mOrganismListFile) Then
                     success = oOrganismFilter.FilterFastaByOrganism(mInputFilePath, mOrganismListFile, mOutputFolderPath)
+
+                ElseIf Not String.IsNullOrEmpty(mProteinListFile) Then
+                    success = oOrganismFilter.FilterFastaByProteinName(mInputFilePath, mProteinListFile, mOutputFolderPath)
+
                 Else
-                    success = oOrganismFilter.FindOrganismsInFasta(mInputFilePath, mOutputFolderPath)				
-				End If
+                    success = oOrganismFilter.FindOrganismsInFasta(mInputFilePath, mOutputFolderPath)
+                End If
 
-				If success Then
-					returnCode = 0
-				Else
-					returnCode = -1
-				End If
+                If success Then
+                    returnCode = 0
+                Else
+                    returnCode = -1
+                End If
 
-			End If
+            End If
 
-		Catch ex As System.Exception
-			clsFilterFastaByOrganism.ShowErrorMessage("Error occurred in modMain->Main: " & System.Environment.NewLine & ex.Message)
-			returnCode = -1
-		End Try
+        Catch ex As Exception
+            clsFilterFastaByOrganism.ShowErrorMessage("Error occurred in modMain->Main: " & Environment.NewLine & ex.Message)
+            returnCode = -1
+        End Try
 
 		Return returnCode
 
@@ -96,7 +102,7 @@ Module modMain
 		' Returns True if no problems; otherwise, returns false
 
 		Dim strValue As String = String.Empty
-        Dim strValidParameters() As String = New String() {"I", "Org", "O", "Map", "Organism"}
+        Dim strValidParameters = New String() {"I", "Org", "O", "Map", "Organism", "Prot"}
 
 		Try
 			' Make sure no invalid parameters are present
@@ -124,6 +130,10 @@ Module modMain
 						mOutputFolderPath = strValue
 					End If
 
+                    If .RetrieveValueForParameter("Prot", strValue) Then
+                        mProteinListFile = strValue
+                    End If
+
 					If .IsParameterPresent("Map") Then mCreateProteinToOrganismMapFile = True
 				End With
 
@@ -141,23 +151,25 @@ Module modMain
 	Private Sub ShowProgramHelp()
 
 		Try
+            Dim exeName = IO.Path.GetFileName(Reflection.Assembly.GetExecutingAssembly().Location)
 
-			Console.WriteLine("This program reads a fasta file and finds the organism info " +
-				  "defined in the protein description lines. It optionally creates " +
-				  "a filtered fasta file containing only the proteins of interest.")
+            Console.WriteLine("This program reads a FASTA file and filters the proteins " +
+                              "by either organism name or protein name. For organism filtering, " +
+                  "the organism is determined using the protein description lines. " +
+                  "It optionally creates a filtered fasta file containing only the proteins of interest.")
 			Console.WriteLine()
 
-			Console.WriteLine("Program syntax #1:" & ControlChars.NewLine & System.IO.Path.GetFileName(Reflection.Assembly.GetExecutingAssembly().Location) &
-			  " SourceFile.fasta [/O:OutputFolderPath] [/Map]")
+            Console.WriteLine("Program syntax #1:" & ControlChars.NewLine & exeName & " SourceFile.fasta [/O:OutputFolderPath] [/Map]")
 			Console.WriteLine()
 
-			Console.WriteLine("Program syntax #2:" & ControlChars.NewLine & System.IO.Path.GetFileName(Reflection.Assembly.GetExecutingAssembly().Location) &
-			  " SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputFolderPath]")
+            Console.WriteLine("Program syntax #2:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputFolderPath]")
             Console.WriteLine()
 
-            Console.WriteLine("Program syntax #3:" & ControlChars.NewLine & System.IO.Path.GetFileName(Reflection.Assembly.GetExecutingAssembly().Location) &
-              " SourceFile.fasta /Organism:OrganismName [/O:OutputFolderPath]")
+            Console.WriteLine("Program syntax #3:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Organism:OrganismName [/O:OutputFolderPath]")
 			Console.WriteLine()
+
+            Console.WriteLine("Program syntax #4:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputFolderPath]")
+            Console.WriteLine()
 
 			Console.WriteLine("The input file name is required")
 			Console.WriteLine("Surround the filename with double quotes if it contains spaces")
@@ -173,22 +185,33 @@ Module modMain
 			Console.WriteLine("that should be used for filtering the fasta file. The program will create a ")
 			Console.WriteLine("new fasta file that only contains proteins from the organisms of interest")
 			Console.WriteLine()
-			Console.WriteLine("The OrganismListFile should have one organism name per line")
+            Console.WriteLine("The OrganismListFile should have one organism name per line")
 			Console.WriteLine("Organism names that start with 'RegEx:' will be treated as regular expressions ")
-			Console.WriteLine("for matching to protein descriptions. Otherwise, assumes that the protein name ")
+            Console.WriteLine("for matching to protein descriptions. Otherwise, assumes that the organism name ")
 			Console.WriteLine("is the text betweeen the last set of square brackets in the protein description")
 			Console.WriteLine()
-            Console.WriteLine("Syntax 3: use /Organism to specify a single organism name ")
+            Console.WriteLine("Syntax 3: use /Organism to specify a single organism name")
             Console.WriteLine("to be used for filtering the fasta file. The * character is treated as a wildcard. ")
             Console.WriteLine("The program will create a new fasta file that only contains proteins from that organism")
             Console.WriteLine()
-            Console.WriteLine("For all 3 modes, use /O to specify an output folder")
+            Console.WriteLine("Syntax 4: use /Prot to filter by protein name, using the proteins listed in the given text file. ")
+            Console.WriteLine("The program will create a new fasta file that only contains the listed proteins.")
+            Console.WriteLine()
+            Console.WriteLine("The ProteinListFile should have one protein name per line")
+            Console.WriteLine("Protein names that start with 'RegEx:' will be treated as regular expressions ")
+            Console.WriteLine("for matching to protein names.")
+            Console.WriteLine()
+            Console.WriteLine("For all 4 modes, use /O to specify an output folder")
 			Console.WriteLine("If /O is missing, the output files will be created in the same folder as the source file")
-			Console.WriteLine()
-			Console.WriteLine("Program written by Matthew Monroe for the Department of Energy (PNNL, Richland, WA) in 2014")
-			Console.WriteLine("E-mail: matthew.monroe@pnnl.gov or matt@alchemistmatt.com")
-			Console.WriteLine("Website: http://omics.pnl.gov/ or http://www.sysbio.org/resources/staff/")
-			Console.WriteLine()
+            Console.WriteLine()
+
+            Console.WriteLine("Program written by Matthew Monroe for the Department of Energy (PNNL, Richland, WA) in 2010")
+            Console.WriteLine("Version: " & GetAppVersion())
+            Console.WriteLine()
+
+            Console.WriteLine("E-mail: matthew.monroe@pnnl.gov or matt@alchemistmatt.com")
+            Console.WriteLine("Website: http://omics.pnl.gov/ or http://panomics.pnnl.gov/")
+            Console.WriteLine()
 
 			' Delay for 750 msec in case the user double clicked this file from within Windows Explorer (or started the program via a shortcut)
 			System.Threading.Thread.Sleep(750)
