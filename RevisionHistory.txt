@@ -1,5 +1,11 @@
 Fasta Organism Splitter
 
+Version 1.0.5767; October 16, 2015
+	- Now looking for Uniprot species entries, for example OS=Species Name
+		- If a species entry is present, it takes precedent over organism names in square brackets
+		- If a species entry is present, and the search text or regex does not match, the protein description will not be searched
+	- In contrast, if OS= is missing, and the match to an organism name in square brackets fails, the entire protein description is searched
+
 Version 1.0.5632; June 3, 2015
 	- Added support for filtering by protein name via the /Prot switch with a protein list file
 		- The Protein List should contain one protein name per line

@@ -16,7 +16,7 @@
 '
 Module modMain
 
-    Public Const PROGRAM_DATE As String = "June 3, 2015"
+    Public Const PROGRAM_DATE As String = "October 16, 2015"
 
 	Private mInputFilePath As String
 	Private mOutputFolderPath As String
@@ -155,8 +155,8 @@ Module modMain
 
             Console.WriteLine("This program reads a FASTA file and filters the proteins " +
                               "by either organism name or protein name. For organism filtering, " +
-                  "the organism is determined using the protein description lines. " +
-                  "It optionally creates a filtered fasta file containing only the proteins of interest.")
+                              "the organism is determined using the protein description lines. " +
+                              "It optionally creates a filtered fasta file containing only the proteins of interest.")
 			Console.WriteLine()
 
             Console.WriteLine("Program syntax #1:" & ControlChars.NewLine & exeName & " SourceFile.fasta [/O:OutputFolderPath] [/Map]")
@@ -171,28 +171,35 @@ Module modMain
             Console.WriteLine("Program syntax #4:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputFolderPath]")
             Console.WriteLine()
 
-			Console.WriteLine("The input file name is required")
-			Console.WriteLine("Surround the filename with double quotes if it contains spaces")
-			Console.WriteLine()
+
+            Console.WriteLine("The input file name is required")
+            Console.WriteLine("Surround the filename with double quotes if it contains spaces")
+            Console.WriteLine()
             Console.WriteLine("Syntax 1: will find the organisms present in the fasta file, ")
-			Console.WriteLine("creating an OrganismSummary file. Assumes the organism name is defined ")
-			Console.WriteLine("by the last set of square brackets in the protein description.")
-			Console.WriteLine("")
-			Console.WriteLine("Use /Map to also create a file mapping protein name to organism name")
-			Console.WriteLine("(filename SourceFasta_ProteinOrganismMap.txt")
-			Console.WriteLine()
+            Console.WriteLine("creating an OrganismSummary file. First looks for a Uniprot sequence tag,")
+            Console.WriteLine("for example OS=Homo Sapiens.  If that tag is not found, then looks for the")
+            Console.WriteLine("name in the last set of square brackets in the protein description.")
+            Console.WriteLine("If OS= is missing and the square brackets are missing, searches the")
+            Console.WriteLine("entire description.")
+            Console.WriteLine()
+            Console.WriteLine("Use /Map to also create a file mapping protein name to organism name")
+            Console.WriteLine("(filename SourceFasta_ProteinOrganismMap.txt")
+            Console.WriteLine()
             Console.WriteLine("Syntax 2: use /Org to specify a text file listing organism names ")
-			Console.WriteLine("that should be used for filtering the fasta file. The program will create a ")
-			Console.WriteLine("new fasta file that only contains proteins from the organisms of interest")
-			Console.WriteLine()
+            Console.WriteLine("that should be used for filtering the fasta file. The program will create a ")
+            Console.WriteLine("new fasta file that only contains proteins from the organisms of interest")
+            Console.WriteLine()
             Console.WriteLine("The OrganismListFile should have one organism name per line")
-			Console.WriteLine("Organism names that start with 'RegEx:' will be treated as regular expressions ")
-            Console.WriteLine("for matching to protein descriptions. Otherwise, assumes that the organism name ")
-			Console.WriteLine("is the text betweeen the last set of square brackets in the protein description")
-			Console.WriteLine()
+            Console.WriteLine("Entries that start with 'RegEx:' will be treated as regular expressions.")
+            Console.WriteLine("Names or RegEx values are first matched to Uniprot style OS=Organism entries")
+            Console.WriteLine("If not a match, the protein is skipped. If no OS= entry is present, next looks")
+            Console.WriteLine("for an organism name in square brackets. If no match to a [Organism] tag,")
+            Console.WriteLine("the entire protein description is searched.")
+            Console.WriteLine()
             Console.WriteLine("Syntax 3: use /Organism to specify a single organism name")
             Console.WriteLine("to be used for filtering the fasta file. The * character is treated as a wildcard. ")
-            Console.WriteLine("The program will create a new fasta file that only contains proteins from that organism")
+            Console.WriteLine("The program will create a new fasta file that only contains proteins from that ")
+            Console.WriteLine("organism.")
             Console.WriteLine()
             Console.WriteLine("Syntax 4: use /Prot to filter by protein name, using the proteins listed in the given text file. ")
             Console.WriteLine("The program will create a new fasta file that only contains the listed proteins.")
@@ -202,8 +209,7 @@ Module modMain
             Console.WriteLine("for matching to protein names.")
             Console.WriteLine()
             Console.WriteLine("For all 4 modes, use /O to specify an output folder")
-			Console.WriteLine("If /O is missing, the output files will be created in the same folder as the source file")
-            Console.WriteLine()
+            Console.WriteLine("If /O is missing, the output files will be created in the same folder as the source file")
 
             Console.WriteLine("Program written by Matthew Monroe for the Department of Energy (PNNL, Richland, WA) in 2010")
             Console.WriteLine("Version: " & GetAppVersion())

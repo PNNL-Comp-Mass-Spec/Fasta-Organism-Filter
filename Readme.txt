@@ -25,12 +25,18 @@ FastaOrganismFilter.exe SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputFol
 Program syntax #3:
 FastaOrganismFilter.exe SourceFile.fasta /Organism:OrganismName [/O:OutputFolderPath]
 
+Program syntax #4:
+FastaOrganismFilter.exe SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputFolderPath]
+
 The input file name is required
 Surround the filename with double quotes if it contains spaces
 
 Syntax 1: will find the organisms present in the fasta file, 
-creating an OrganismSummary file. Assumes the organism name is defined 
-by the last set of square brackets in the protein description.
+creating an OrganismSummary file. First looks for a Uniprot sequence tag,
+for example OS=Homo Sapiens.  If that tag is not found, then looks for the
+name in the last set of square brackets in the protein description.
+If OS= is missing and the square brackets are missing, searches the
+entire description.
 
 Use /Map to also create a file mapping protein name to organism name
 (filename SourceFasta_ProteinOrganismMap.txt
@@ -40,15 +46,24 @@ that should be used for filtering the fasta file. The program will create a
 new fasta file that only contains proteins from the organisms of interest
 
 The OrganismListFile should have one organism name per line
-Organism names that start with 'RegEx:' will be treated as regular expressions 
-for matching to protein descriptions. Otherwise, assumes that the protein name 
-is the text betweeen the last set of square brackets in the protein description
+Entries that start with 'RegEx:' will be treated as regular expressions. 
+Names or RegEx values are first matched to Uniprot style OS=Organism entries
+If not a match, the protein is skipped. If no OS= entry is present, next looks
+for an organism name in square brackets. If no match to a [Organism] tag, 
+the entire protein description is searched.
 
 Syntax 3: use /Organism to specify a single organism name 
 to be used for filtering the fasta file. The * character is treated as a wildcard. 
-The program will create a new fasta file that only contains proteins from that organism
+The program will create a new fasta file that only contains proteins from that 
+organism.
+Syntax 4: use /Prot to filter by protein name, using the proteins listed in the given text file. 
+The program will create a new fasta file that only contains the listed proteins.
 
-For all 3 modes, use /O to specify an output folder
+The ProteinListFile should have one protein name per line
+Protein names that start with 'RegEx:' will be treated as regular expressions 
+for matching to protein names.
+
+For all 4 modes, use /O to specify an output folder
 If /O is missing, the output files will be created in the same folder as the source file
 
 

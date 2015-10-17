@@ -32,6 +32,7 @@ Public Class clsFilterFastaByOrganism
 
 #Region "Constants and Enums"
 
+    Protected Const MAX_PROTEIN_DESCRIPTION_LENGTH As Integer = 7500
 #End Region
 
 #Region "Structures"
@@ -41,20 +42,54 @@ Public Class clsFilterFastaByOrganism
 
 #Region "Classwide Variables"
 
-	Protected Const MAX_PROTEIN_DESCRIPTION_LENGTH As Integer = 7500
-	
+    Private ReadOnly mFindSpeciesTag As Regex
+    Private ReadOnly mFindNextTag As Regex
+
 #End Region
 
 #Region "Properties"
 
-	Public Property CreateProteinToOrganismMapFile As Boolean
+    Public Property CreateProteinToOrganismMapFile As Boolean
 #End Region
 
-    Private Function ExtractOrganism(proteinDescription As String) As String
+    Public Sub New()
+        mFindSpeciesTag = New Regex("OS=(.+)", RegexOptions.Compiled Or RegexOptions.IgnoreCase)
+        mFindNextTag = New Regex(" [a-z]+=", RegexOptions.Compiled Or RegexOptions.IgnoreCase)
+    End Sub
 
-        ' Search for the organism info, assuming it is the last text seen between two square brackets
-        ' However, there are exceptions we have to consider, for example
-        ' [Salmonella enterica subsp. enterica serovar 4,[5],12:i:-]
+    Private Function ExtractSpecies(proteinDescription As String) As String
+
+        ' Look for the first occurrence of OS=
+        ' Adding a bogus extra tag at the end in case the last official tag is OS=
+        Dim reMatch = mFindSpeciesTag.Match(proteinDescription & " XX=Ignore")
+
+        If reMatch.Success Then
+
+            Dim speciesTag = reMatch.Groups(1).Value
+
+            Dim reMatch2 = mFindNextTag.Match(speciesTag)
+
+            If reMatch2.Success Then
+                Dim species = speciesTag.Substring(0, reMatch2.Index)
+                Return species
+            End If
+
+        End If
+
+        Return String.Empty
+
+    End Function
+
+    ''' <summary>
+    ''' Search for the organism info, assuming it is the last text seen between two square brackets
+    ''' </summary>
+    ''' <param name="proteinDescription"></param>
+    ''' <returns></returns>
+    ''' <remarks>
+    ''' However, there are exceptions we have to consider, for example
+    ''' [Salmonella enterica subsp. enterica serovar 4,[5],12:i:-]
+    ''' </remarks>
+    Private Function ExtractOrganism(proteinDescription As String) As String
 
         Dim indexEnd As Integer = proteinDescription.LastIndexOf("]"c)
         If indexEnd >= 0 Then
@@ -100,13 +135,13 @@ Public Class clsFilterFastaByOrganism
             ' Keys in this dictionary are the organism names to filter on; values are meaningless integers
             ' The reason for using a dictionary is to provide fast lookups, but without case sensitivity
             ' I wanted to use a SortedSet but you can't define it without case sensitivity
-            Dim lstTextFilters = New Dictionary(Of String, Integer)
+            Dim lstOrganismNameFilters = New Dictionary(Of String, Integer)
             Dim lstRegExFilters = New SortedSet(Of Regex)
 
             If organismName.Contains("*") Then
                 lstRegExFilters.Add(New Regex(organismName.Replace("*", ".+"), RegexOptions.Compiled Or RegexOptions.IgnoreCase))
             Else
-                lstTextFilters.Add(organismName, 0)
+                lstOrganismNameFilters.Add(organismName, 0)
             End If
 
 
@@ -121,7 +156,7 @@ Public Class clsFilterFastaByOrganism
             Next
             outputFileSuffix = outputFileSuffix.TrimEnd("_"c)
 
-            Dim success = FilterFastaByOrganismWork(inputFilePath, diOutputFolder, lstTextFilters, lstRegExFilters, outputFileSuffix)
+            Dim success = FilterFastaByOrganismWork(inputFilePath, diOutputFolder, lstOrganismNameFilters, lstRegExFilters, outputFileSuffix)
 
             Return success
 
@@ -191,7 +226,7 @@ Public Class clsFilterFastaByOrganism
     Private Function FilterFastaByOrganismWork(
       inputFilePath As String,
       diOutputFolder As DirectoryInfo,
-      lstTextFilters As IDictionary(Of String, Integer),
+      lstOrganismNameFilters As IDictionary(Of String, Integer),
       lstRegExFilters As SortedSet(Of Regex),
       outputFileSuffix As String) As Boolean
 
@@ -218,19 +253,25 @@ Public Class clsFilterFastaByOrganism
 
             While oReader.ReadNextProteinEntry()
 
-                Dim organism = ExtractOrganism(oReader.ProteinDescription)
+                Dim species = ExtractSpecies(oReader.ProteinDescription)
 
                 Dim keepProtein = False
 
-                If lstTextFilters.ContainsKey(organism) Then
-                    keepProtein = True
+                If Not String.IsNullOrEmpty(species) Then
+                    ' Uniprot Fasta file with OS= entries
+                    keepProtein = IsExactOrRegexMatch(species, lstOrganismNameFilters, lstRegExFilters)
                 Else
-                    For Each regExSpec In lstRegExFilters
-                        If regExSpec.IsMatch(oReader.ProteinDescription) Then
-                            keepProtein = True
-                            Exit For
-                        End If
-                    Next
+                    Dim organism = ExtractOrganism(oReader.ProteinDescription)
+
+                    If Not String.IsNullOrEmpty(organism) Then
+                        ' Match organism name within square brackets
+                        keepProtein = IsExactOrRegexMatch(organism, lstOrganismNameFilters, lstRegExFilters)
+                    End If
+
+                    If Not keepProtein Then
+                        ' Match the entire protein description
+                        keepProtein = IsExactOrRegexMatch(oReader.ProteinDescription, lstOrganismNameFilters, lstRegExFilters)
+                    End If
                 End If
 
                 If keepProtein Then
@@ -247,6 +288,22 @@ Public Class clsFilterFastaByOrganism
         End Using
 
         Return True
+
+    End Function
+
+    Private Function IsExactOrRegexMatch(organism As String, lstOrganismNameFilters As IDictionary(Of String, Integer), lstRegExFilters As SortedSet(Of Regex)) As Boolean
+
+        Dim keepProtein = False
+
+        If lstOrganismNameFilters.ContainsKey(organism) Then
+            keepProtein = True
+        Else
+            If lstRegExFilters.Any(Function(regExSpec) regExSpec.IsMatch(organism)) Then
+                keepProtein = True
+            End If
+        End If
+
+        Return keepProtein
 
     End Function
 
@@ -336,18 +393,7 @@ Public Class clsFilterFastaByOrganism
 
             While oReader.ReadNextProteinEntry()
 
-                Dim keepProtein = False
-
-                If lstTextFilters.ContainsKey(oReader.ProteinName) Then
-                    keepProtein = True
-                Else
-                    For Each regExSpec In lstRegExFilters
-                        If regExSpec.IsMatch(oReader.ProteinName) Then
-                            keepProtein = True
-                            Exit For
-                        End If
-                    Next
-                End If
+                Dim keepProtein = IsExactOrRegexMatch(oReader.ProteinName, lstTextFilters, lstRegExFilters)
 
                 If keepProtein Then
                     WriteFastaFileEntry(swFilteredFasta, oReader)
@@ -404,7 +450,12 @@ Public Class clsFilterFastaByOrganism
 
             While oReader.ReadNextProteinEntry()
 
-                Dim organism = ExtractOrganism(oReader.ProteinDescription)
+                Dim organism = ExtractSpecies(oReader.ProteinDescription)
+
+                If String.IsNullOrEmpty(organism) Then
+                    organism = ExtractOrganism(oReader.ProteinDescription)
+                End If
+
                 If String.IsNullOrWhiteSpace(organism) Then
                     ShowMessage(" Warning: Organism not found for " & oReader.ProteinName)
                     Continue While
@@ -438,6 +489,7 @@ Public Class clsFilterFastaByOrganism
 
             ' Now write out the unique list of organisms
             Using swOrganismSummary = New StreamWriter(New FileStream(organismSummaryFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+
                 swOrganismSummary.WriteLine(
                   "Organism" & ControlChars.Tab &
                   "Proteins" & ControlChars.Tab &
@@ -523,7 +575,7 @@ Public Class clsFilterFastaByOrganism
     End Function
 
     Private Sub ReportProgress(strProgress As String)
-        Console.WriteLine(System.DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") & " " & strProgress)
+        Console.WriteLine(DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") & " " & strProgress)
     End Sub
 
     Public Shared Sub ShowErrorMessage(strMessage As String)
