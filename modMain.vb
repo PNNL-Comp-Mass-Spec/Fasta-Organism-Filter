@@ -16,7 +16,7 @@
 '
 Module modMain
 
-    Public Const PROGRAM_DATE As String = "October 16, 2015"
+    Public Const PROGRAM_DATE As String = "June 9, 2016"
 
 	Private mInputFilePath As String
 	Private mOutputFolderPath As String
@@ -25,6 +25,8 @@ Module modMain
     Private mProteinListFile As String
 
 	Private mCreateProteinToOrganismMapFile As Boolean
+    Private mSearchProteinDescriptions As Boolean
+    Private mVerboseMode As Boolean
 
 	Public Function Main() As Integer
 
@@ -56,6 +58,8 @@ Module modMain
                 With oOrganismFilter
 
                     .CreateProteinToOrganismMapFile = mCreateProteinToOrganismMapFile
+                    .SearchProteinDescriptions = mSearchProteinDescriptions
+                    .VerboseMode = mVerboseMode
 
                     ''If Not mParameterFilePath Is Nothing AndAlso mParameterFilePath.Length > 0 Then
                     ''    .LoadParameterFileSettings(mParameterFilePath)
@@ -95,58 +99,96 @@ Module modMain
 	End Function
 
 	Private Function GetAppVersion() As String
-		Return System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() & " (" & PROGRAM_DATE & ")"
+        Return Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() & " (" & PROGRAM_DATE & ")"
 	End Function
 
-	Private Function SetOptionsUsingCommandLineParameters(ByVal objParseCommandLine As clsParseCommandLine) As Boolean
-		' Returns True if no problems; otherwise, returns false
+    Private Function SetOptionsUsingCommandLineParameters(objParseCommandLine As clsParseCommandLine) As Boolean
+        ' Returns True if no problems; otherwise, returns false
 
-		Dim strValue As String = String.Empty
-        Dim strValidParameters = New String() {"I", "Org", "O", "Map", "Organism", "Prot"}
+        Dim strValue As String = String.Empty
+        Dim lstValidParameters = New List(Of String) From {"I", "Org", "O", "Map", "Organism", "Prot", "Desc", "Verbose"}
 
-		Try
-			' Make sure no invalid parameters are present
-			If objParseCommandLine.InvalidParametersPresent(strValidParameters) Then
-				Return False
-			Else
+        Try
+            ' Make sure no invalid parameters are present
+            If objParseCommandLine.InvalidParametersPresent(lstValidParameters) Then
+                ShowErrorMessage("Invalid commmand line parameters",
+                  (From item In objParseCommandLine.InvalidParameters(lstValidParameters) Select "/" + item).ToList())
+                Return False
+            Else
 
-				' Query objParseCommandLine to see if various parameters are present
-				With objParseCommandLine
-					If .RetrieveValueForParameter("I", strValue) Then
-						mInputFilePath = strValue
-					ElseIf .NonSwitchParameterCount > 0 Then
-						mInputFilePath = .RetrieveNonSwitchParameter(0)
-					End If
+                ' Query objParseCommandLine to see if various parameters are present
+                With objParseCommandLine
+                    If .RetrieveValueForParameter("I", strValue) Then
+                        mInputFilePath = strValue
+                    ElseIf .NonSwitchParameterCount > 0 Then
+                        mInputFilePath = .RetrieveNonSwitchParameter(0)
+                    End If
 
-					If .RetrieveValueForParameter("Org", strValue) Then
-						mOrganismListFile = strValue
-					End If
+                    If .RetrieveValueForParameter("Org", strValue) Then
+                        mOrganismListFile = strValue
+                    End If
 
                     If .RetrieveValueForParameter("Organism", strValue) Then
                         mOrganismName = strValue
                     End If
 
-					If .RetrieveValueForParameter("O", strValue) Then
-						mOutputFolderPath = strValue
-					End If
+                    If .RetrieveValueForParameter("O", strValue) Then
+                        mOutputFolderPath = strValue
+                    End If
 
                     If .RetrieveValueForParameter("Prot", strValue) Then
                         mProteinListFile = strValue
                     End If
 
-					If .IsParameterPresent("Map") Then mCreateProteinToOrganismMapFile = True
-				End With
+                    If .IsParameterPresent("Map") Then mCreateProteinToOrganismMapFile = True
 
-				Return True
-			End If
+                    If .IsParameterPresent("Desc") Then mSearchProteinDescriptions = True
 
-		Catch ex As Exception
-			clsFilterFastaByOrganism.ShowErrorMessage("Error parsing the command line parameters: " & System.Environment.NewLine & ex.Message)
-		End Try
+                    If .IsParameterPresent("Verbose") Then mVerboseMode = True
 
-		Return False
+                End With
 
-	End Function
+                Return True
+            End If
+
+        Catch ex As Exception
+            clsFilterFastaByOrganism.ShowErrorMessage("Error parsing the command line parameters: " & Environment.NewLine & ex.Message)
+        End Try
+
+        Return False
+
+    End Function
+
+    Private Sub ShowErrorMessage(strMessage As String)
+        Dim strSeparator = "------------------------------------------------------------------------------"
+
+        Console.WriteLine()
+        Console.WriteLine(strSeparator)
+        Console.WriteLine(strMessage)
+        Console.WriteLine(strSeparator)
+        Console.WriteLine()
+
+        WriteToErrorStream(strMessage)
+    End Sub
+
+    Private Sub ShowErrorMessage(strTitle As String, items As List(Of String))
+        Dim strSeparator = "------------------------------------------------------------------------------"
+        Dim strMessage As String
+
+        Console.WriteLine()
+        Console.WriteLine(strSeparator)
+        Console.WriteLine(strTitle)
+        strMessage = strTitle & ":"
+
+        For Each item As String In items
+            Console.WriteLine("   " + item)
+            strMessage &= " " & item
+        Next
+        Console.WriteLine(strSeparator)
+        Console.WriteLine()
+
+        WriteToErrorStream(strMessage)
+    End Sub
 
 	Private Sub ShowProgramHelp()
 
@@ -159,23 +201,22 @@ Module modMain
                               "It optionally creates a filtered fasta file containing only the proteins of interest.")
 			Console.WriteLine()
 
-            Console.WriteLine("Program syntax #1:" & ControlChars.NewLine & exeName & " SourceFile.fasta [/O:OutputFolderPath] [/Map]")
+            Console.WriteLine("Program mode #1:" & ControlChars.NewLine & exeName & " SourceFile.fasta [/O:OutputFolderPath] [/Map] [/Verbose]")
 			Console.WriteLine()
 
-            Console.WriteLine("Program syntax #2:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputFolderPath]")
+            Console.WriteLine("Program mode #2:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputFolderPath] [/Verbose]")
             Console.WriteLine()
 
-            Console.WriteLine("Program syntax #3:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Organism:OrganismName [/O:OutputFolderPath]")
+            Console.WriteLine("Program mode #3:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Organism:OrganismName [/O:OutputFolderPath] [/Verbose]")
 			Console.WriteLine()
 
-            Console.WriteLine("Program syntax #4:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputFolderPath]")
+            Console.WriteLine("Program mode #4:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputFolderPath] [/Desc] [/Verbose]")
             Console.WriteLine()
-
 
             Console.WriteLine("The input file name is required")
             Console.WriteLine("Surround the filename with double quotes if it contains spaces")
             Console.WriteLine()
-            Console.WriteLine("Syntax 1: will find the organisms present in the fasta file, ")
+            Console.WriteLine("Mode 1: will find the organisms present in the fasta file, ")
             Console.WriteLine("creating an OrganismSummary file. First looks for a Uniprot sequence tag,")
             Console.WriteLine("for example OS=Homo Sapiens.  If that tag is not found, then looks for the")
             Console.WriteLine("name in the last set of square brackets in the protein description.")
@@ -185,7 +226,7 @@ Module modMain
             Console.WriteLine("Use /Map to also create a file mapping protein name to organism name")
             Console.WriteLine("(filename SourceFasta_ProteinOrganismMap.txt")
             Console.WriteLine()
-            Console.WriteLine("Syntax 2: use /Org to specify a text file listing organism names ")
+            Console.WriteLine("Mode 2: use /Org to specify a text file listing organism names ")
             Console.WriteLine("that should be used for filtering the fasta file. The program will create a ")
             Console.WriteLine("new fasta file that only contains proteins from the organisms of interest")
             Console.WriteLine()
@@ -196,21 +237,25 @@ Module modMain
             Console.WriteLine("for an organism name in square brackets. If no match to a [Organism] tag,")
             Console.WriteLine("the entire protein description is searched.")
             Console.WriteLine()
-            Console.WriteLine("Syntax 3: use /Organism to specify a single organism name")
+            Console.WriteLine("Mode 3: use /Organism to specify a single organism name")
             Console.WriteLine("to be used for filtering the fasta file. The * character is treated as a wildcard. ")
             Console.WriteLine("The program will create a new fasta file that only contains proteins from that ")
             Console.WriteLine("organism.")
             Console.WriteLine()
-            Console.WriteLine("Syntax 4: use /Prot to filter by protein name, using the proteins listed in the given text file. ")
+            Console.WriteLine("Mode 4: use /Prot to filter by protein name, using the proteins listed in the given text file. ")
             Console.WriteLine("The program will create a new fasta file that only contains the listed proteins.")
             Console.WriteLine()
             Console.WriteLine("The ProteinListFile should have one protein name per line")
             Console.WriteLine("Protein names that start with 'RegEx:' will be treated as regular expressions ")
             Console.WriteLine("for matching to protein names.")
             Console.WriteLine()
+            Console.WriteLine("When using Mode 4, optionally use switch /Desc to indicate that protein descriptions should also be searched")
+            Console.WriteLine()
             Console.WriteLine("For all 4 modes, use /O to specify an output folder")
             Console.WriteLine("If /O is missing, the output files will be created in the same folder as the source file")
-
+            Console.WriteLine()
+            Console.WriteLine("Use /Verbose to see details on each match, including the RegEx expression or search keyword that matches a protein name or description")
+            Console.WriteLine()
             Console.WriteLine("Program written by Matthew Monroe for the Department of Energy (PNNL, Richland, WA) in 2010")
             Console.WriteLine("Version: " & GetAppVersion())
             Console.WriteLine()
@@ -220,12 +265,22 @@ Module modMain
             Console.WriteLine()
 
 			' Delay for 750 msec in case the user double clicked this file from within Windows Explorer (or started the program via a shortcut)
-			System.Threading.Thread.Sleep(750)
+            Threading.Thread.Sleep(750)
 
 		Catch ex As Exception
 			clsFilterFastaByOrganism.ShowErrorMessage("Error displaying the program syntax: " & ex.Message)
 		End Try
 
 	End Sub
+
+    Private Sub WriteToErrorStream(strErrorMessage As String)
+        Try
+            Using swErrorStream = New IO.StreamWriter(Console.OpenStandardError())
+                swErrorStream.WriteLine(strErrorMessage)
+            End Using
+        Catch ex As Exception
+            ' Ignore errors here
+        End Try
+    End Sub
 
 End Module

@@ -1,5 +1,14 @@
 Fasta Organism Splitter
 
+Version 1.0.6004; June 9, 2016
+	- Added switch /Desc
+		- Only valid when using switch /Prot (program mode 4)		
+		- Searches protein descriptions in addition to protein names
+	- Added switch /Verbose
+		- Shows details of each match
+		- Creates a text file named InputFasta_Filtered_MatchInfo.txt that contains details on each match
+	- Updated ProteinFileReader.dll
+
 Version 1.0.5767; October 16, 2015
 	- Now looking for Uniprot species entries, for example OS=Species Name
 		- If a species entry is present, it takes precedent over organism names in square brackets

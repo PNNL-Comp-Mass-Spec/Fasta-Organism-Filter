@@ -1,0 +1,16 @@
+RegEx:\bamoA\b.+oxidizing\b
+RegEx:\bNirS\b
+RegEx:\bNirK\b
+RegEx:\bNxrA\b
+RegEx:\bhzo\b
+RegEx:\bNasC\b
+RegEx:\bnitrite reductase[^a-z]+nad[^a-z]*P[^a-z]*H
+RegEx:\bNirA\b
+RegEx:\bhh\b
+RegEx:amoA gene in ammonia.+oxidizing archaea
+RegEx:nitrite reductase
+RegEx:hydroxylamine oxidoreductase
+RegEx:hydrazine oxidoreductase
+RegEx:assimilatory nitrate reductase catalytic subunit
+RegEx:hydrazine dehydrogenase
+RegEx:hydrazine synthase

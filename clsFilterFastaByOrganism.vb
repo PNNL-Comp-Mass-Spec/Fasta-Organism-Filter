@@ -49,12 +49,42 @@ Public Class clsFilterFastaByOrganism
 
 #Region "Properties"
 
+    ''' <summary>
+    ''' Cretae a protein to organism map file
+    ''' </summary>
+    ''' <value></value>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
     Public Property CreateProteinToOrganismMapFile As Boolean
+
+    ''' <summary>
+    ''' Also search protein descriptions in addition to protein names
+    ''' </summary>
+    ''' <value></value>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
+    Public Property SearchProteinDescriptions As Boolean
+
+    ''' <summary>
+    ''' Show additional messages when true, including which search term or RegEx resulted in a match
+    ''' </summary>
+    ''' <value></value>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
+    Public Property VerboseMode As Boolean
+
 #End Region
 
     Public Sub New()
         mFindSpeciesTag = New Regex("OS=(.+)", RegexOptions.Compiled Or RegexOptions.IgnoreCase)
         mFindNextTag = New Regex(" [a-z]+=", RegexOptions.Compiled Or RegexOptions.IgnoreCase)
+    End Sub
+    
+    Private Shared Sub AddRegExExpression(lstRegExFilters As IDictionary(Of String, Regex), expression As String)
+
+        If Not lstRegExFilters.ContainsKey(expression) Then
+            lstRegExFilters.Add(expression, New Regex(expression, RegexOptions.Compiled Or RegexOptions.IgnoreCase))
+        End If
     End Sub
 
     Private Function ExtractSpecies(proteinDescription As String) As String
@@ -134,16 +164,14 @@ Public Class clsFilterFastaByOrganism
 
             ' Keys in this dictionary are the organism names to filter on; values are meaningless integers
             ' The reason for using a dictionary is to provide fast lookups, but without case sensitivity
-            ' I wanted to use a SortedSet but you can't define it without case sensitivity
             Dim lstOrganismNameFilters = New Dictionary(Of String, Integer)
-            Dim lstRegExFilters = New SortedSet(Of Regex)
+            Dim lstRegExFilters = New Dictionary(Of String, Regex)
 
             If organismName.Contains("*") Then
-                lstRegExFilters.Add(New Regex(organismName.Replace("*", ".+"), RegexOptions.Compiled Or RegexOptions.IgnoreCase))
+                AddRegExExpression(lstRegExFilters, organismName.Replace("*", ".+"))
             Else
                 lstOrganismNameFilters.Add(organismName, 0)
             End If
-
 
             Dim badChars = New List(Of Char) From {" "c, "\"c, "/"c, ":"c, "*"c, "?"c, "."c, "<"c, ">"c, "|"c}
             Dim outputFileSuffix = "_"
@@ -191,9 +219,8 @@ Public Class clsFilterFastaByOrganism
 
             ' Keys in this dictionary are the organism names to filter on; values are meaningless integers
             ' The reason for using a dictionary is to provide fast lookups, but without case sensitivity
-            ' I wanted to use a SortedSet but you can't define it without case sensitivity
             Dim lstTextFilters As Dictionary(Of String, Integer) = Nothing
-            Dim lstRegExFilters As SortedSet(Of Regex) = Nothing
+            Dim lstRegExFilters As Dictionary(Of String, Regex) = Nothing
 
             If Not ReadNameFilterFile(fiOrganismListFile, lstTextFilters, lstRegExFilters) Then
                 Return False
@@ -219,7 +246,7 @@ Public Class clsFilterFastaByOrganism
      inputFilePath As String,
      diOutputFolder As DirectoryInfo,
      lstTextFilters As IDictionary(Of String, Integer),
-     lstRegExFilters As SortedSet(Of Regex)) As Boolean
+     lstRegExFilters As Dictionary(Of String, Regex)) As Boolean
         Return FilterFastaByOrganismWork(inputFilePath, diOutputFolder, lstTextFilters, lstRegExFilters, "")
     End Function
 
@@ -227,11 +254,11 @@ Public Class clsFilterFastaByOrganism
       inputFilePath As String,
       diOutputFolder As DirectoryInfo,
       lstOrganismNameFilters As IDictionary(Of String, Integer),
-      lstRegExFilters As SortedSet(Of Regex),
+      lstRegExFilters As Dictionary(Of String, Regex),
       outputFileSuffix As String) As Boolean
 
         Dim oReader = New ProteinFileReader.FastaFileReader()
-        Dim intProteinsProcessed = 0
+        Dim dtLastProgress = DateTime.UtcNow
 
         If Not oReader.OpenFile(inputFilePath) Then
             ShowErrorMessage("Error opening the fasta file; aborting")
@@ -246,6 +273,13 @@ Public Class clsFilterFastaByOrganism
 
         Dim baseName = Path.GetFileNameWithoutExtension(inputFilePath)
         Dim filteredFastaFilePath = Path.Combine(diOutputFolder.FullName, baseName & outputFileSuffix & ".fasta")
+        Dim swMatchInfoFile As StreamWriter = Nothing
+
+        If VerboseMode Then
+            Dim matchInfoFilePath = Path.Combine(diOutputFolder.FullName, baseName & outputFileSuffix & "_MatchInfo.txt")
+            swMatchInfoFile = New StreamWriter(New FileStream(matchInfoFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+            swMatchInfoFile.WriteLine("Protein" & ControlChars.Tab & "FilterMatch" & ControlChars.Tab & "RegEx")
+        End If
 
         ShowMessage("Creating " & Path.GetFileName(filteredFastaFilePath))
 
@@ -256,51 +290,91 @@ Public Class clsFilterFastaByOrganism
                 Dim species = ExtractSpecies(oReader.ProteinDescription)
 
                 Dim keepProtein = False
+                Dim keepProteinFromDescription = False
 
                 If Not String.IsNullOrEmpty(species) Then
                     ' Uniprot Fasta file with OS= entries
-                    keepProtein = IsExactOrRegexMatch(species, lstOrganismNameFilters, lstRegExFilters)
+                    keepProtein = IsExactOrRegexMatch(oReader.ProteinName, species, lstOrganismNameFilters, lstRegExFilters, VerboseMode, swMatchInfoFile)
                 Else
                     Dim organism = ExtractOrganism(oReader.ProteinDescription)
 
                     If Not String.IsNullOrEmpty(organism) Then
                         ' Match organism name within square brackets
-                        keepProtein = IsExactOrRegexMatch(organism, lstOrganismNameFilters, lstRegExFilters)
+                        keepProtein = IsExactOrRegexMatch(oReader.ProteinName, organism, lstOrganismNameFilters, lstRegExFilters, VerboseMode, swMatchInfoFile)
                     End If
 
                     If Not keepProtein Then
                         ' Match the entire protein description
-                        keepProtein = IsExactOrRegexMatch(oReader.ProteinDescription, lstOrganismNameFilters, lstRegExFilters)
+                        keepProteinFromDescription = IsExactOrRegexMatch(oReader.ProteinName, oReader.ProteinDescription, lstOrganismNameFilters, lstRegExFilters, VerboseMode, swMatchInfoFile)
                     End If
                 End If
 
-                If keepProtein Then
+                If keepProtein Or keepProteinFromDescription Then
                     WriteFastaFileEntry(swFilteredFasta, oReader)
                 End If
 
-                intProteinsProcessed += 1
-                If intProteinsProcessed Mod 50000 = 0 Then
+                If DateTime.UtcNow.Subtract(dtLastProgress).TotalSeconds >= 10 Then
+                    dtLastProgress = DateTime.UtcNow
+                    If VerboseMode Then Console.WriteLine()
+                    If VerboseMode Then Console.WriteLine("--------------------------------------------")
                     ReportProgress("Working: " & oReader.PercentFileProcessed & "% complete")
+                    If VerboseMode Then Console.WriteLine("--------------------------------------------")
+                    If VerboseMode Then Console.WriteLine()
                 End If
 
             End While
 
         End Using
 
+        If Not swMatchInfoFile Is Nothing Then
+            swMatchInfoFile.Close()
+        End If
+
         Return True
 
     End Function
 
-    Private Function IsExactOrRegexMatch(organism As String, lstOrganismNameFilters As IDictionary(Of String, Integer), lstRegExFilters As SortedSet(Of Regex)) As Boolean
+    Private Shared Function IsExactOrRegexMatch(
+       proteinName As String,
+       textToSearch As String,
+       itemsToMatchExactly As IDictionary(Of String, Integer),
+       regExFilters As Dictionary(Of String, Regex),
+       showMessages As Boolean,
+       swMatchInfoFile As TextWriter) As Boolean
 
         Dim keepProtein = False
 
-        If lstOrganismNameFilters.ContainsKey(organism) Then
+        If itemsToMatchExactly.ContainsKey(textToSearch) Then
             keepProtein = True
-        Else
-            If lstRegExFilters.Any(Function(regExSpec) regExSpec.IsMatch(organism)) Then
-                keepProtein = True
+            If showMessages Then
+                Console.WriteLine("Protein " & proteinName & " matched " & textToSearch)
             End If
+            If Not swMatchInfoFile Is Nothing Then
+                swMatchInfoFile.WriteLine(proteinName & ControlChars.Tab & textToSearch)
+            End If
+        Else
+            For Each regExSpec In regExFilters
+                Dim reMatch = regExSpec.Value.Match(textToSearch)
+                If reMatch.Success Then
+                    keepProtein = True
+
+                    If showMessages Then
+                        Dim contextIndexStart = reMatch.Index - 5
+                        Dim contextIndexEnd = reMatch.Index + reMatch.Value.Length + 10
+                        If contextIndexStart < 0 Then contextIndexStart = 0
+                        If contextIndexEnd >= textToSearch.Length Then contextIndexEnd = textToSearch.Length - 1
+
+                        Console.WriteLine("Protein " & proteinName & " matched " & reMatch.Value & " in: " &
+                                          textToSearch.Substring(contextIndexStart, contextIndexEnd - contextIndexStart))
+                    End If
+
+                    If Not swMatchInfoFile Is Nothing Then
+                        swMatchInfoFile.WriteLine(proteinName & ControlChars.Tab & reMatch.Value & ControlChars.Tab & regExSpec.Key)
+                    End If
+
+                    Exit For
+                End If
+            Next
         End If
 
         Return keepProtein
@@ -331,9 +405,8 @@ Public Class clsFilterFastaByOrganism
 
             ' Keys in this dictionary are the protein names to filter on; values are meaningless integers
             ' The reason for using a dictionary is to provide fast lookups, but without case sensitivity
-            ' I wanted to use a SortedSet but you can't define it without case sensitivity
             Dim lstTextFilters As Dictionary(Of String, Integer) = Nothing
-            Dim lstRegExFilters As SortedSet(Of Regex) = Nothing
+            Dim lstRegExFilters As Dictionary(Of String, Regex) = Nothing
 
             If Not ReadNameFilterFile(fiProteinListFile, lstTextFilters, lstRegExFilters) Then
                 Return False
@@ -359,7 +432,7 @@ Public Class clsFilterFastaByOrganism
      inputFilePath As String,
      diOutputFolder As DirectoryInfo,
      lstTextFilters As IDictionary(Of String, Integer),
-     lstRegExFilters As SortedSet(Of Regex)) As Boolean
+     lstRegExFilters As Dictionary(Of String, Regex)) As Boolean
         Return FilterFastaByProteinWork(inputFilePath, diOutputFolder, lstTextFilters, lstRegExFilters, "")
     End Function
 
@@ -367,11 +440,11 @@ Public Class clsFilterFastaByOrganism
       inputFilePath As String,
       diOutputFolder As DirectoryInfo,
       lstTextFilters As IDictionary(Of String, Integer),
-      lstRegExFilters As SortedSet(Of Regex),
+      lstRegExFilters As Dictionary(Of String, Regex),
       outputFileSuffix As String) As Boolean
 
         Dim oReader = New ProteinFileReader.FastaFileReader()
-        Dim intProteinsProcessed = 0
+        Dim dtLastProgress = DateTime.UtcNow
 
         If Not oReader.OpenFile(inputFilePath) Then
             ShowErrorMessage("Error opening the fasta file; aborting")
@@ -386,6 +459,13 @@ Public Class clsFilterFastaByOrganism
 
         Dim baseName = Path.GetFileNameWithoutExtension(inputFilePath)
         Dim filteredFastaFilePath = Path.Combine(diOutputFolder.FullName, baseName & outputFileSuffix & ".fasta")
+        Dim swMatchInfoFile As StreamWriter = Nothing
+
+        If VerboseMode Then
+            Dim matchInfoFilePath = Path.Combine(diOutputFolder.FullName, baseName & outputFileSuffix & "_MatchInfo.txt")
+            swMatchInfoFile = New StreamWriter(New FileStream(matchInfoFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+            swMatchInfoFile.WriteLine("Protein" & ControlChars.Tab & "FilterMatch" & ControlChars.Tab & "RegEx")
+        End If
 
         ShowMessage("Creating " & Path.GetFileName(filteredFastaFilePath))
 
@@ -393,34 +473,44 @@ Public Class clsFilterFastaByOrganism
 
             While oReader.ReadNextProteinEntry()
 
-                Dim keepProtein = IsExactOrRegexMatch(oReader.ProteinName, lstTextFilters, lstRegExFilters)
+                Dim keepProtein = IsExactOrRegexMatch(oReader.ProteinName, oReader.ProteinName, lstTextFilters, lstRegExFilters, VerboseMode, swMatchInfoFile)
+                Dim keepProteinFromDescription = False
 
-                If keepProtein Then
+                If Not keepProtein AndAlso SearchProteinDescriptions Then
+                    keepProteinFromDescription = IsExactOrRegexMatch(oReader.ProteinName, oReader.ProteinDescription, lstTextFilters, lstRegExFilters, VerboseMode, swMatchInfoFile)
+                End If
+
+                If keepProtein Or keepProteinFromDescription Then
                     WriteFastaFileEntry(swFilteredFasta, oReader)
                 End If
 
-                intProteinsProcessed += 1
-                If intProteinsProcessed Mod 50000 = 0 Then
+                If DateTime.UtcNow.Subtract(dtLastProgress).TotalSeconds >= 10 Then
+                    dtLastProgress = DateTime.UtcNow
+                    If VerboseMode Then Console.WriteLine()
+                    If VerboseMode Then Console.WriteLine("--------------------------------------------")
                     ReportProgress("Working: " & oReader.PercentFileProcessed & "% complete")
+                    If VerboseMode Then Console.WriteLine("--------------------------------------------")
+                    If VerboseMode Then Console.WriteLine()
                 End If
 
             End While
 
         End Using
 
+        If Not swMatchInfoFile Is Nothing Then
+            swMatchInfoFile.Close()
+        End If
+
         Return True
 
     End Function
-
-
-
-
+    
     Public Function FindOrganismsInFasta(inputFilePath As String, outputFolderPath As String) As Boolean
 
         Try
 
             Dim oReader = New ProteinFileReader.FastaFileReader()
-            Dim intProteinsProcessed = 0
+            Dim dtLastProgress = DateTime.UtcNow
 
             Dim diOutputFolder As DirectoryInfo = Nothing
             If Not ValidateInputAndOutputFolders(inputFilePath, outputFolderPath, diOutputFolder) Then
@@ -472,9 +562,13 @@ Public Class clsFilterFastaByOrganism
                     swMapFile.WriteLine(oReader.ProteinName & ControlChars.Tab & organism)
                 End If
 
-                intProteinsProcessed += 1
-                If intProteinsProcessed Mod 50000 = 0 Then
+                If DateTime.UtcNow.Subtract(dtLastProgress).TotalSeconds >= 10 Then
+                    dtLastProgress = DateTime.UtcNow
+                    If VerboseMode Then Console.WriteLine()
+                    If VerboseMode Then Console.WriteLine("--------------------------------------------")
                     ReportProgress("Working: " & oReader.PercentFileProcessed & "% complete")
+                    If VerboseMode Then Console.WriteLine("--------------------------------------------")
+                    If VerboseMode Then Console.WriteLine()
                 End If
 
             End While
@@ -535,10 +629,10 @@ Public Class clsFilterFastaByOrganism
     Private Function ReadNameFilterFile(
       fiNameListFile As FileInfo,
       <Out()> ByRef lstTextFilters As Dictionary(Of String, Integer),
-      <Out()> ByRef lstRegExFilters As SortedSet(Of Regex)) As Boolean
+      <Out()> ByRef lstRegExFilters As Dictionary(Of String, Regex)) As Boolean
 
         lstTextFilters = New Dictionary(Of String, Integer)(StringComparison.CurrentCultureIgnoreCase)
-        lstRegExFilters = New SortedSet(Of Regex)
+        lstRegExFilters = New Dictionary(Of String, Regex)
 
         Dim lineNumber = 0
 
@@ -558,7 +652,7 @@ Public Class clsFilterFastaByOrganism
                             ShowMessage("  Warning: empty RegEx filter defined on line " & lineNumber)
                             Continue While
                         End If
-                        lstRegExFilters.Add(New Regex(regExFilter, RegexOptions.Compiled Or RegexOptions.IgnoreCase))
+                        AddRegExExpression(lstRegExFilters, regExFilter)
                     ElseIf Not lstTextFilters.ContainsKey(dataLine) Then
                         lstTextFilters.Add(dataLine, lineNumber)
                     End If
