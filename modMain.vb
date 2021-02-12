@@ -30,9 +30,9 @@ Module modMain
     Private mSearchProteinDescriptions As Boolean
     Private mVerboseMode As Boolean
 
-	Public Function Main() As Integer
+    ' Ignore Spelling: Prot, Desc, UniProt
 
-        Dim returnCode As Integer
+    Public Function Main() As Integer
 
         Try
             ' Set the default values
@@ -43,72 +43,69 @@ Module modMain
             mProteinListFile = String.Empty
 
             Dim proceed = False
-            Dim oParseCommandLine As New clsParseCommandLine
-            If oParseCommandLine.ParseCommandLine Then
-                If SetOptionsUsingCommandLineParameters(oParseCommandLine) Then proceed = True
+            Dim commandLineParser As New clsParseCommandLine
+            If commandLineParser.ParseCommandLine Then
+                If SetOptionsUsingCommandLineParameters(commandLineParser) Then proceed = True
             End If
 
             If Not proceed OrElse
-               oParseCommandLine.NeedToShowHelp OrElse
-               oParseCommandLine.ParameterCount + oParseCommandLine.NonSwitchParameterCount = 0 OrElse
+               commandLineParser.NeedToShowHelp OrElse
+               commandLineParser.ParameterCount + commandLineParser.NonSwitchParameterCount = 0 OrElse
                mInputFilePath.Length = 0 Then
                 ShowProgramHelp()
-                returnCode = -1
-            Else
-                Dim oOrganismFilter = New clsFilterFastaByOrganism()
-
-                With oOrganismFilter
-
-                    .CreateProteinToOrganismMapFile = mCreateProteinToOrganismMapFile
-                    .SearchProteinDescriptions = mSearchProteinDescriptions
-                    .VerboseMode = mVerboseMode
-
-                    ''If Not mParameterFilePath Is Nothing AndAlso mParameterFilePath.Length > 0 Then
-                    ''    .LoadParameterFileSettings(mParameterFilePath)
-                    ''End If
-                End With
-
-                Dim success = False
-
-                If Not String.IsNullOrEmpty(mOrganismName) Then
-                    success = oOrganismFilter.FilterFastaOneOrganism(mInputFilePath, mOrganismName, mOutputFolderPath)
-
-                ElseIf Not String.IsNullOrEmpty(mOrganismListFile) Then
-                    success = oOrganismFilter.FilterFastaByOrganism(mInputFilePath, mOrganismListFile, mOutputFolderPath)
-
-                ElseIf Not String.IsNullOrEmpty(mProteinListFile) Then
-                    success = oOrganismFilter.FilterFastaByProteinName(mInputFilePath, mProteinListFile, mOutputFolderPath)
-
-                Else
-                    success = oOrganismFilter.FindOrganismsInFasta(mInputFilePath, mOutputFolderPath)
-                End If
-
-                If success Then
-                    returnCode = 0
-                Else
-                    returnCode = -1
-                End If
-
+                Return -1
             End If
 
+            Dim organismFilter = New FilterFastaByOrganism()
+
+            With organismFilter
+
+                .CreateProteinToOrganismMapFile = mCreateProteinToOrganismMapFile
+                .SearchProteinDescriptions = mSearchProteinDescriptions
+                .VerboseMode = mVerboseMode
+
+                ''If Not mParameterFilePath Is Nothing AndAlso mParameterFilePath.Length > 0 Then
+                ''    .LoadParameterFileSettings(mParameterFilePath)
+                ''End If
+            End With
+
+            Dim success As Boolean
+
+            If Not String.IsNullOrEmpty(mOrganismName) Then
+                success = organismFilter.FilterFastaOneOrganism(mInputFilePath, mOrganismName, mOutputFolderPath)
+
+            ElseIf Not String.IsNullOrEmpty(mOrganismListFile) Then
+                success = organismFilter.FilterFastaByOrganism(mInputFilePath, mOrganismListFile, mOutputFolderPath)
+
+            ElseIf Not String.IsNullOrEmpty(mProteinListFile) Then
+                success = organismFilter.FilterFastaByProteinName(mInputFilePath, mProteinListFile, mOutputFolderPath)
+
+            Else
+                success = organismFilter.FindOrganismsInFasta(mInputFilePath, mOutputFolderPath)
+            End If
+
+            If success Then
+                Return 0
+            End If
+
+            Return -1
+
         Catch ex As Exception
-            returnCode = -1
             ConsoleMsgUtils.ShowError("Error occurred in modMain->Main", ex)
+            Return -1
         End Try
 
-		Return returnCode
+    End Function
 
-	End Function
-
-	Private Function GetAppVersion() As String
+    Private Function GetAppVersion() As String
         Return Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() & " (" & PROGRAM_DATE & ")"
-	End Function
+    End Function
 
-    Private Function SetOptionsUsingCommandLineParameters(objParseCommandLine As clsParseCommandLine) As Boolean
+    Private Function SetOptionsUsingCommandLineParameters(commandLineParser As clsParseCommandLine) As Boolean
         ' Returns True if no problems; otherwise, returns false
 
-        Dim strValue As String = String.Empty
-        Dim lstValidParameters = New List(Of String) From {"I", "Org", "O", "Map", "Organism", "Prot", "Desc", "Verbose"}
+        Dim value As String = String.Empty
+        Dim validParameters = New List(Of String) From {"I", "Org", "O", "Map", "Organism", "Prot", "Desc", "Verbose"}
 
         Try
             ' Make sure no invalid parameters are present
@@ -118,27 +115,27 @@ Module modMain
             Else
 
                 ' Query objParseCommandLine to see if various parameters are present
-                With objParseCommandLine
-                    If .RetrieveValueForParameter("I", strValue) Then
-                        mInputFilePath = strValue
+                With commandLineParser
+                    If .RetrieveValueForParameter("I", value) Then
+                        mInputFilePath = value
                     ElseIf .NonSwitchParameterCount > 0 Then
                         mInputFilePath = .RetrieveNonSwitchParameter(0)
                     End If
 
-                    If .RetrieveValueForParameter("Org", strValue) Then
-                        mOrganismListFile = strValue
+                    If .RetrieveValueForParameter("Org", value) Then
+                        mOrganismListFile = value
                     End If
 
-                    If .RetrieveValueForParameter("Organism", strValue) Then
-                        mOrganismName = strValue
+                    If .RetrieveValueForParameter("Organism", value) Then
+                        mOrganismName = value
                     End If
 
-                    If .RetrieveValueForParameter("O", strValue) Then
-                        mOutputFolderPath = strValue
+                    If .RetrieveValueForParameter("O", value) Then
+                        mOutputFolderPath = value
                     End If
 
-                    If .RetrieveValueForParameter("Prot", strValue) Then
-                        mProteinListFile = strValue
+                    If .RetrieveValueForParameter("Prot", value) Then
+                        mProteinListFile = value
                     End If
 
                     If .IsParameterPresent("Map") Then mCreateProteinToOrganismMapFile = True

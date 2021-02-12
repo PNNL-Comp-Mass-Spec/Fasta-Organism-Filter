@@ -29,7 +29,7 @@ Imports System.Runtime.InteropServices
 Imports System.Text.RegularExpressions
 Imports PRISM
 
-Public Class clsFilterFastaByOrganism
+Public Class FilterFastaByOrganism
 
 #Region "Constants and Enums"
 
