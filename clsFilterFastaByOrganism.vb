@@ -27,6 +27,7 @@ Option Strict On
 Imports System.IO
 Imports System.Runtime.InteropServices
 Imports System.Text.RegularExpressions
+Imports PRISM
 
 Public Class clsFilterFastaByOrganism
 
@@ -158,7 +159,7 @@ Public Class clsFilterFastaByOrganism
             End If
 
             If String.IsNullOrWhiteSpace(organismName) Then
-                ShowErrorMessage("Organism name is empty")
+                ConsoleMsgUtils.ShowError("Organism name is empty")
                 Return False
             End If
 
@@ -189,7 +190,7 @@ Public Class clsFilterFastaByOrganism
             Return success
 
         Catch ex As Exception
-            ShowErrorMessage("Error in FindOrganismsInFasta: " & ex.Message)
+            ConsoleMsgUtils.ShowError("Error in FindOrganismsInFasta", ex)
             Return False
         End Try
 
@@ -205,13 +206,13 @@ Public Class clsFilterFastaByOrganism
             End If
 
             If String.IsNullOrWhiteSpace(organismListFile) Then
-                ShowErrorMessage("Organism list file not defined")
+                ConsoleMsgUtils.ShowError("Organism list file not defined")
                 Return False
             End If
 
             Dim fiOrganismListFile = New FileInfo(organismListFile)
             If Not fiOrganismListFile.Exists Then
-                ShowErrorMessage("Organism list file not found: " & fiOrganismListFile.FullName)
+                ConsoleMsgUtils.ShowError("Organism list file not found: " & fiOrganismListFile.FullName)
                 Return False
             End If
 
@@ -227,7 +228,7 @@ Public Class clsFilterFastaByOrganism
             End If
 
             If lstTextFilters.Count = 0 AndAlso lstRegExFilters.Count = 0 Then
-                ShowErrorMessage("Organism list file is empty: " & fiOrganismListFile.FullName)
+                ConsoleMsgUtils.ShowError("Organism list file is empty: " & fiOrganismListFile.FullName)
                 Return False
             End If
 
@@ -236,7 +237,7 @@ Public Class clsFilterFastaByOrganism
             Return success
 
         Catch ex As Exception
-            ShowErrorMessage("Error in FilterFastaByOrganism: " & ex.Message)
+            ConsoleMsgUtils.ShowError("Error in FilterFastaByOrganism", ex)
             Return False
         End Try
 
@@ -261,7 +262,7 @@ Public Class clsFilterFastaByOrganism
         Dim dtLastProgress = DateTime.UtcNow
 
         If Not oReader.OpenFile(inputFilePath) Then
-            ShowErrorMessage("Error opening the fasta file; aborting")
+            ConsoleMsgUtils.ShowError("Error opening the fasta file; aborting")
             Return False
         End If
 
@@ -391,13 +392,13 @@ Public Class clsFilterFastaByOrganism
             End If
 
             If String.IsNullOrWhiteSpace(proteinListFile) Then
-                ShowErrorMessage("Protein list file not defined")
+                ConsoleMsgUtils.ShowError("Protein list file not defined")
                 Return False
             End If
 
             Dim fiProteinListFile = New FileInfo(proteinListFile)
             If Not fiProteinListFile.Exists Then
-                ShowErrorMessage("Protein list file not found: " & fiProteinListFile.FullName)
+                ConsoleMsgUtils.ShowError("Protein list file not found: " & fiProteinListFile.FullName)
                 Return False
             End If
 
@@ -413,7 +414,7 @@ Public Class clsFilterFastaByOrganism
             End If
 
             If lstTextFilters.Count = 0 AndAlso lstRegExFilters.Count = 0 Then
-                ShowErrorMessage("Protein list file is empty: " & fiProteinListFile.FullName)
+                ConsoleMsgUtils.ShowError("Protein list file is empty: " & fiProteinListFile.FullName)
                 Return False
             End If
 
@@ -422,7 +423,7 @@ Public Class clsFilterFastaByOrganism
             Return success
 
         Catch ex As Exception
-            ShowErrorMessage("Error in FilterProteinName: " & ex.Message)
+            ConsoleMsgUtils.ShowError("Error in FilterProteinName", ex)
             Return False
         End Try
 
@@ -447,7 +448,7 @@ Public Class clsFilterFastaByOrganism
         Dim dtLastProgress = DateTime.UtcNow
 
         If Not oReader.OpenFile(inputFilePath) Then
-            ShowErrorMessage("Error opening the fasta file; aborting")
+            ConsoleMsgUtils.ShowError("Error opening the fasta file; aborting")
             Return False
         End If
 
@@ -521,7 +522,7 @@ Public Class clsFilterFastaByOrganism
             Dim lstOrganisms = New Dictionary(Of String, Integer)
 
             If Not oReader.OpenFile(inputFilePath) Then
-                ShowErrorMessage("Error opening the fasta file; aborting")
+                ConsoleMsgUtils.ShowError("Error opening the fasta file; aborting")
                 Return False
             End If
 
@@ -618,7 +619,7 @@ Public Class clsFilterFastaByOrganism
             End Using
 
         Catch ex As Exception
-            ShowErrorMessage("Error in FindOrganismsInFasta: " & ex.Message)
+            ConsoleMsgUtils.ShowError("Error in FindOrganismsInFasta", ex)
             Return False
         End Try
 
@@ -660,7 +661,7 @@ Public Class clsFilterFastaByOrganism
                 End While
             End Using
         Catch ex As Exception
-            ShowErrorMessage("Error in ReadNameFilterFile at line " & lineNumber & ": " & ex.Message)
+            ConsoleMsgUtils.ShowError("Error in ReadNameFilterFile at line " & lineNumber, ex.Message)
             Return False
         End Try
 
@@ -670,17 +671,6 @@ Public Class clsFilterFastaByOrganism
 
     Private Sub ReportProgress(strProgress As String)
         Console.WriteLine(DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") & " " & strProgress)
-    End Sub
-
-    Public Shared Sub ShowErrorMessage(strMessage As String)
-        Const strSeparator As String = "------------------------------------------------------------------------------"
-
-        Console.WriteLine()
-        Console.WriteLine(strSeparator)
-        Console.WriteLine(strMessage)
-        Console.WriteLine(strSeparator)
-        Console.WriteLine()
-
     End Sub
 
     Private Sub ShowMessage(message As String)
@@ -694,7 +684,7 @@ Public Class clsFilterFastaByOrganism
 
         Dim fiSourceFile = New FileInfo(inputFilePath)
         If Not fiSourceFile.Exists Then
-            ShowErrorMessage("Source file not found: " & inputFilePath)
+            ConsoleMsgUtils.ShowError("Source file not found: " & inputFilePath)
             diOutputFolder = Nothing
             Return False
         End If
@@ -728,7 +718,7 @@ Public Class clsFilterFastaByOrganism
             Return diOutputFolder
 
         Catch ex As Exception
-            ShowErrorMessage("Error validating the output folder: " & ex.Message)
+            ConsoleMsgUtils.ShowError("Error validating the output folder", ex)
             Return Nothing
         End Try
 

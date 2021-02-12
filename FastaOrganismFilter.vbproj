@@ -73,11 +73,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="clsFilterFastaByOrganism.vb" />
-    <Compile Include="clsParseCommandLine.vb" />
     <Compile Include="modMain.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="PRISM-Library">
+      <Version>2.6.23</Version>
+    </PackageReference>
     <PackageReference Include="ProteinFileReader">
       <Version>2.0.1</Version>
     </PackageReference>

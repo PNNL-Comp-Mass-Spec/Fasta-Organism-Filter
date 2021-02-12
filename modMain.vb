@@ -14,6 +14,8 @@
 ' in compliance with the License.  You may obtain a copy of the License at 
 ' http://www.apache.org/licenses/LICENSE-2.0
 '
+Imports PRISM
+
 Module modMain
 
     Public Const PROGRAM_DATE As String = "June 9, 2016"
@@ -90,8 +92,8 @@ Module modMain
             End If
 
         Catch ex As Exception
-            clsFilterFastaByOrganism.ShowErrorMessage("Error occurred in modMain->Main: " & Environment.NewLine & ex.Message)
             returnCode = -1
+            ConsoleMsgUtils.ShowError("Error occurred in modMain->Main", ex)
         End Try
 
 		Return returnCode
@@ -110,9 +112,8 @@ Module modMain
 
         Try
             ' Make sure no invalid parameters are present
-            If objParseCommandLine.InvalidParametersPresent(lstValidParameters) Then
-                ShowErrorMessage("Invalid commmand line parameters",
-                  (From item In objParseCommandLine.InvalidParameters(lstValidParameters) Select "/" + item).ToList())
+            If commandLineParser.InvalidParametersPresent(validParameters) Then
+                ConsoleMsgUtils.ShowErrors("Invalid command line parameters", commandLineParser.InvalidParameters(validParameters))
                 Return False
             Else
 
@@ -152,43 +153,14 @@ Module modMain
             End If
 
         Catch ex As Exception
-            clsFilterFastaByOrganism.ShowErrorMessage("Error parsing the command line parameters: " & Environment.NewLine & ex.Message)
+            ConsoleMsgUtils.ShowError("Error parsing the command line parameters", ex)
         End Try
 
         Return False
 
     End Function
 
-    Private Sub ShowErrorMessage(strMessage As String)
-        Dim strSeparator = "------------------------------------------------------------------------------"
 
-        Console.WriteLine()
-        Console.WriteLine(strSeparator)
-        Console.WriteLine(strMessage)
-        Console.WriteLine(strSeparator)
-        Console.WriteLine()
-
-        WriteToErrorStream(strMessage)
-    End Sub
-
-    Private Sub ShowErrorMessage(strTitle As String, items As List(Of String))
-        Dim strSeparator = "------------------------------------------------------------------------------"
-        Dim strMessage As String
-
-        Console.WriteLine()
-        Console.WriteLine(strSeparator)
-        Console.WriteLine(strTitle)
-        strMessage = strTitle & ":"
-
-        For Each item As String In items
-            Console.WriteLine("   " + item)
-            strMessage &= " " & item
-        Next
-        Console.WriteLine(strSeparator)
-        Console.WriteLine()
-
-        WriteToErrorStream(strMessage)
-    End Sub
 
 	Private Sub ShowProgramHelp()
 
@@ -267,20 +239,10 @@ Module modMain
 			' Delay for 750 msec in case the user double clicked this file from within Windows Explorer (or started the program via a shortcut)
             Threading.Thread.Sleep(750)
 
-		Catch ex As Exception
-			clsFilterFastaByOrganism.ShowErrorMessage("Error displaying the program syntax: " & ex.Message)
-		End Try
-
-	End Sub
-
-    Private Sub WriteToErrorStream(strErrorMessage As String)
-        Try
-            Using swErrorStream = New IO.StreamWriter(Console.OpenStandardError())
-                swErrorStream.WriteLine(strErrorMessage)
-            End Using
         Catch ex As Exception
-            ' Ignore errors here
+            ConsoleMsgUtils.ShowError("Error displaying the program syntax", ex)
         End Try
+
     End Sub
 
 End Module
