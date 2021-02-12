@@ -13,16 +13,16 @@ Option Strict On
 ' -------------------------------------------------------------------------------
 '
 ' Licensed under the Apache License, Version 2.0; you may not use this file except
-' in compliance with the License.  You may obtain a copy of the License at 
+' in compliance with the License.  You may obtain a copy of the License at
 ' http://www.apache.org/licenses/LICENSE-2.0
 '
-' Notice: This computer software was prepared by Battelle Memorial Institute, 
-' hereinafter the Contractor, under Contract No. DE-AC05-76RL0 1830 with the 
-' Department of Energy (DOE).  All rights in the computer software are reserved 
-' by DOE on behalf of the United States Government and the Contractor as 
-' provided in the Contract.  NEITHER THE GOVERNMENT NOR THE CONTRACTOR MAKES ANY 
-' WARRANTY, EXPRESS OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS 
-' SOFTWARE.  This notice including this sentence must appear on any copies of 
+' Notice: This computer software was prepared by Battelle Memorial Institute,
+' hereinafter the Contractor, under Contract No. DE-AC05-76RL0 1830 with the
+' Department of Energy (DOE).  All rights in the computer software are reserved
+' by DOE on behalf of the United States Government and the Contractor as
+' provided in the Contract.  NEITHER THE GOVERNMENT NOR THE CONTRACTOR MAKES ANY
+' WARRANTY, EXPRESS OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS
+' SOFTWARE.  This notice including this sentence must appear on any copies of
 ' this computer software.
 Imports System.IO
 Imports System.Runtime.InteropServices
@@ -80,7 +80,7 @@ Public Class FilterFastaByOrganism
         mFindSpeciesTag = New Regex("OS=(.+)", RegexOptions.Compiled Or RegexOptions.IgnoreCase)
         mFindNextTag = New Regex(" [a-z]+=", RegexOptions.Compiled Or RegexOptions.IgnoreCase)
     End Sub
-    
+
     Private Shared Sub AddRegExExpression(lstRegExFilters As IDictionary(Of String, Regex), expression As String)
 
         If Not lstRegExFilters.ContainsKey(expression) Then
@@ -505,7 +505,7 @@ Public Class FilterFastaByOrganism
         Return True
 
     End Function
-    
+
     Public Function FindOrganismsInFasta(inputFilePath As String, outputFolderPath As String) As Boolean
 
         Try
@@ -518,7 +518,7 @@ Public Class FilterFastaByOrganism
                 Return False
             End If
 
-            ' Key is organism name, value is protein usage count			
+            ' Key is organism name, value is protein usage count
             Dim lstOrganisms = New Dictionary(Of String, Integer)
 
             If Not oReader.OpenFile(inputFilePath) Then
@@ -646,7 +646,7 @@ Public Class FilterFastaByOrganism
 
                     If String.IsNullOrWhiteSpace(dataLine) Then Continue While
 
-                    ' Check for "RegEx:"					
+                    ' Check for "RegEx:"
                     If dataLine.StartsWith("RegEx:") Then
                         Dim regExFilter = dataLine.Substring("RegEx:".Length)
                         If String.IsNullOrWhiteSpace(regExFilter) Then

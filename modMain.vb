@@ -9,24 +9,24 @@
 ' E-mail: matthew.monroe@pnnl.gov or matt@alchemistmatt.com
 ' Website: http://omics.pnl.gov/ or http://www.sysbio.org/resources/staff/ or http://panomics.pnnl.gov/
 ' -------------------------------------------------------------------------------
-' 
+'
 ' Licensed under the Apache License, Version 2.0; you may not use this file except
-' in compliance with the License.  You may obtain a copy of the License at 
+' in compliance with the License.  You may obtain a copy of the License at
 ' http://www.apache.org/licenses/LICENSE-2.0
 '
 Imports PRISM
 
 Module modMain
 
-    Public Const PROGRAM_DATE As String = "June 9, 2016"
+    Public Const PROGRAM_DATE As String = "February 11, 2021"
 
-	Private mInputFilePath As String
-	Private mOutputFolderPath As String
+    Private mInputFilePath As String
+    Private mOutputFolderPath As String
     Private mOrganismListFile As String
     Private mOrganismName As String
     Private mProteinListFile As String
 
-	Private mCreateProteinToOrganismMapFile As Boolean
+    Private mCreateProteinToOrganismMapFile As Boolean
     Private mSearchProteinDescriptions As Boolean
     Private mVerboseMode As Boolean
 
