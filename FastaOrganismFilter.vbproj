@@ -53,9 +53,6 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ProteinFileReader">
-      <HintPath>Lib\ProteinFileReader.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Deployment" />
@@ -79,6 +76,11 @@
     <Compile Include="clsParseCommandLine.vb" />
     <Compile Include="modMain.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ProteinFileReader">
+      <Version>2.0.1</Version>
+    </PackageReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
