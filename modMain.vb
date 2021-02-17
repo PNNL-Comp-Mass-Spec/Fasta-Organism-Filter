@@ -169,16 +169,16 @@ Module modMain
                 "It optionally creates a filtered fasta file containing only the proteins of interest.")
             Console.WriteLine()
 
-            Console.WriteLine("Program mode #1:" & ControlChars.NewLine & exeName & " SourceFile.fasta [/O:OutputFolderPath] [/Map] [/Verbose]")
+            Console.WriteLine("Program mode #1:" & ControlChars.NewLine & exeName & " SourceFile.fasta [/O:OutputDirectoryPath] [/Map] [/Verbose]")
             Console.WriteLine()
 
-            Console.WriteLine("Program mode #2:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputFolderPath] [/Verbose]")
+            Console.WriteLine("Program mode #2:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputDirectoryPath] [/Verbose]")
             Console.WriteLine()
 
-            Console.WriteLine("Program mode #3:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Organism:OrganismName [/O:OutputFolderPath] [/Verbose]")
+            Console.WriteLine("Program mode #3:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Organism:OrganismName [/O:OutputDirectoryPath] [/Verbose]")
             Console.WriteLine()
 
-            Console.WriteLine("Program mode #4:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputFolderPath] [/Desc] [/Verbose]")
+            Console.WriteLine("Program mode #4:" & ControlChars.NewLine & exeName & " SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputDirectoryPath] [/Desc] [/Verbose]")
             Console.WriteLine()
 
             ConsoleMsgUtils.WrapParagraph("The input file name is required. Surround the filename with double quotes if it contains spaces")
@@ -224,8 +224,8 @@ Module modMain
                 "When using Mode 4, optionally use switch /Desc to indicate that protein descriptions should also be searched")
             Console.WriteLine()
             ConsoleMsgUtils.WrapParagraph(
-                "For all 4 modes, use /O to specify an output folder. " +
-                "If /O is missing, the output files will be created in the same folder as the source file")
+                "For all 4 modes, use /O to specify an output directory. " +
+                "If /O is missing, the output files will be created in the same directory as the source file")
             Console.WriteLine()
             ConsoleMsgUtils.WrapParagraph(
                 "Use /Verbose to see details on each match, including the RegEx expression or search keyword that matches a protein name or description")
