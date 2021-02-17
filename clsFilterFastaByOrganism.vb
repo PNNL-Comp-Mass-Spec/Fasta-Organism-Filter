@@ -4,7 +4,7 @@ Imports System.IO
 Imports System.Runtime.InteropServices
 Imports System.Text.RegularExpressions
 Imports PRISM
-
+Imports ProteinFileReader
 
 ''' <summary>
 ''' This class reads a fasta file and finds the organism info defined in the protein description lines
