@@ -310,19 +310,12 @@ namespace FastaOrganismFilter
 
                     if (DateTime.UtcNow.Subtract(lastProgressTime).TotalSeconds < 10d)
                         continue;
+
                     lastProgressTime = DateTime.UtcNow;
-                    if (VerboseMode)
-                    {
-                        Console.WriteLine();
-                        Console.WriteLine("--------------------------------------------");
-                    }
 
+                    ShowOptionalBar(true);
                     ReportProgress("Working: " + reader.PercentFileProcessed() + "% complete");
-                    if (!VerboseMode)
-                        continue;
-
-                    Console.WriteLine("--------------------------------------------");
-                    Console.WriteLine();
+                    ShowOptionalBar(false);
                 }
             }
 
@@ -478,21 +471,12 @@ namespace FastaOrganismFilter
 
                     if (DateTime.UtcNow.Subtract(lastProgressTime).TotalSeconds < 10d)
                         continue;
+
                     lastProgressTime = DateTime.UtcNow;
 
-                    if (VerboseMode)
-                    {
-                        Console.WriteLine();
-                        Console.WriteLine("--------------------------------------------");
-                    }
-
+                    ShowOptionalBar(true);
                     ReportProgress("Working: " + reader.PercentFileProcessed() + "% complete");
-
-                    if (!VerboseMode)
-                        continue;
-
-                    Console.WriteLine("--------------------------------------------");
-                    Console.WriteLine();
+                    ShowOptionalBar(false);
                 }
             }
 
@@ -567,19 +551,10 @@ namespace FastaOrganismFilter
                         continue;
 
                     lastProgressTime = DateTime.UtcNow;
-                    if (VerboseMode)
-                    {
-                        Console.WriteLine();
-                        Console.WriteLine("--------------------------------------------");
-                    }
 
+                    ShowOptionalBar(true);
                     ReportProgress("Working: " + reader.PercentFileProcessed() + "% complete");
-
-                    if (!VerboseMode)
-                        continue;
-
-                    Console.WriteLine("--------------------------------------------");
-                    Console.WriteLine();
+                    ShowOptionalBar(false);
                 }
 
                 mapFileWriter?.Close();
@@ -673,6 +648,22 @@ namespace FastaOrganismFilter
         private void ShowMessage(string message)
         {
             Console.WriteLine(message);
+        }
+
+        private void ShowOptionalBar(bool topBar)
+        {
+            if (!VerboseMode)
+                return;
+
+            if (topBar)
+            {
+                Console.WriteLine();
+                Console.WriteLine("--------------------------------------------");
+                return;
+            }
+
+            Console.WriteLine("--------------------------------------------");
+            Console.WriteLine();
         }
 
         private bool ValidateInputAndOutputDirectories(string inputFilePath, ref string outputDirectoryPath, out DirectoryInfo outputDirectory)
