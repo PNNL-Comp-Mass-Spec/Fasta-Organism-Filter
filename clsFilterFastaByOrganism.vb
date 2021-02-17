@@ -31,24 +31,11 @@ Imports PRISM
 
 Public Class FilterFastaByOrganism
 
-#Region "Constants and Enums"
 
     Protected Const MAX_PROTEIN_DESCRIPTION_LENGTH As Integer = 7500
-#End Region
-
-#Region "Structures"
-
-
-#End Region
-
-#Region "Classwide Variables"
 
     Private ReadOnly mFindSpeciesTag As Regex
     Private ReadOnly mFindNextTag As Regex
-
-#End Region
-
-#Region "Properties"
 
     ''' <summary>
     ''' Cretae a protein to organism map file
@@ -74,7 +61,6 @@ Public Class FilterFastaByOrganism
     ''' <remarks></remarks>
     Public Property VerboseMode As Boolean
 
-#End Region
 
     Public Sub New()
         mFindSpeciesTag = New Regex("OS=(.+)", RegexOptions.Compiled Or RegexOptions.IgnoreCase)
