@@ -183,7 +183,7 @@ namespace FastaOrganismFilter
             }
             catch (Exception ex)
             {
-                ConsoleMsgUtils.ShowError("Error in FindOrganismsInFasta", ex);
+                ConsoleMsgUtils.ShowError("Error in FilterFastaOneOrganism", ex);
                 return false;
             }
         }
@@ -237,7 +237,7 @@ namespace FastaOrganismFilter
             }
             catch (Exception ex)
             {
-                ConsoleMsgUtils.ShowError("Error in FilterFastaByOrganism", ex);
+                ConsoleMsgUtils.ShowError("Error in FilterFastaByOrganismName", ex);
                 return false;
             }
         }
@@ -422,7 +422,7 @@ namespace FastaOrganismFilter
             }
             catch (Exception ex)
             {
-                ConsoleMsgUtils.ShowError("Error in FilterProteinName", ex);
+                ConsoleMsgUtils.ShowError("Error in FilterFastaByProteinName", ex);
                 return false;
             }
         }
