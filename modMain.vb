@@ -56,18 +56,11 @@ Module modMain
                 Return -1
             End If
 
-            Dim organismFilter = New FilterFastaByOrganism()
-
-            With organismFilter
-
-                .CreateProteinToOrganismMapFile = mCreateProteinToOrganismMapFile
-                .SearchProteinDescriptions = mSearchProteinDescriptions
+            Dim organismFilter = New FilterFastaByOrganism With {
+                .CreateProteinToOrganismMapFile = mCreateProteinToOrganismMapFile,
+                .SearchProteinDescriptions = mSearchProteinDescriptions,
                 .VerboseMode = mVerboseMode
-
-                ''If Not mParameterFilePath Is Nothing AndAlso mParameterFilePath.Length > 0 Then
-                ''    .LoadParameterFileSettings(mParameterFilePath)
-                ''End If
-            End With
+            }
 
             Dim success As Boolean
 
