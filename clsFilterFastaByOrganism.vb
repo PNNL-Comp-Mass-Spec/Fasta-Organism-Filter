@@ -1,34 +1,30 @@
 Option Strict On
 
-' This class reads a fasta file and finds the organism info defined in the protein description lines
-' It optionally creates a filtered fasta file containing only the proteins of interest
-'
-' -------------------------------------------------------------------------------
-' Written by Matthew Monroe for the Department of Energy (PNNL, Richland, WA)
-' Program started September 4, 2014
-' Copyright 2014, Battelle Memorial Institute.  All Rights Reserved.
-
-' E-mail: matthew.monroe@pnnl.gov or matt@alchemistmatt.com
-' Website: http://omics.pnl.gov/ or http://www.sysbio.org/resources/staff/
-' -------------------------------------------------------------------------------
-'
-' Licensed under the Apache License, Version 2.0; you may not use this file except
-' in compliance with the License.  You may obtain a copy of the License at
-' http://www.apache.org/licenses/LICENSE-2.0
-'
-' Notice: This computer software was prepared by Battelle Memorial Institute,
-' hereinafter the Contractor, under Contract No. DE-AC05-76RL0 1830 with the
-' Department of Energy (DOE).  All rights in the computer software are reserved
-' by DOE on behalf of the United States Government and the Contractor as
-' provided in the Contract.  NEITHER THE GOVERNMENT NOR THE CONTRACTOR MAKES ANY
-' WARRANTY, EXPRESS OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS
-' SOFTWARE.  This notice including this sentence must appear on any copies of
-' this computer software.
 Imports System.IO
 Imports System.Runtime.InteropServices
 Imports System.Text.RegularExpressions
 Imports PRISM
 
+
+''' <summary>
+''' This class reads a fasta file and finds the organism info defined in the protein description lines
+''' It optionally creates a filtered fasta file containing only the proteins of interest
+''' </summary>
+''' <remarks>
+''' <para>Written by Matthew Monroe for the Department of Energy (PNNL, Richland, WA)
+''' Program started September 4, 2014
+''' Copyright 2014, Battelle Memorial Institute.  All Rights Reserved.
+''' </para>
+''' <para>
+''' E-mail: matthew.monroe@pnnl.gov or matt@alchemistmatt.com
+''' Website: http://omics.pnl.gov/ or http://www.sysbio.org/resources/staff/
+''' </para>
+''' <para>
+''' Licensed under the Apache License, Version 2.0; you may not use this file except
+''' in compliance with the License.  You may obtain a copy of the License at
+''' http://www.apache.org/licenses/LICENSE-2.0
+''' </para>
+''' </remarks>
 Public Class FilterFastaByOrganism
 
 
@@ -38,7 +34,7 @@ Public Class FilterFastaByOrganism
     Private ReadOnly mFindNextTag As Regex
 
     ''' <summary>
-    ''' Cretae a protein to organism map file
+    ''' Create a protein to organism map file
     ''' </summary>
     ''' <value></value>
     ''' <returns></returns>
@@ -61,7 +57,9 @@ Public Class FilterFastaByOrganism
     ''' <remarks></remarks>
     Public Property VerboseMode As Boolean
 
-
+    ''' <summary>
+    ''' Constructor
+    ''' </summary>
     Public Sub New()
         mFindSpeciesTag = New Regex("OS=(.+)", RegexOptions.Compiled Or RegexOptions.IgnoreCase)
         mFindNextTag = New Regex(" [a-z]+=", RegexOptions.Compiled Or RegexOptions.IgnoreCase)
@@ -280,8 +278,8 @@ Public Class FilterFastaByOrganism
                 Dim keepProteinFromDescription = False
 
                 If Not String.IsNullOrEmpty(species) Then
-                    ' Uniprot Fasta file with OS= entries
                     keepProtein = IsExactOrRegexMatch(oReader.ProteinName, species, lstOrganismNameFilters, lstRegExFilters, VerboseMode, swMatchInfoFile)
+                    ' UniProt Fasta file with OS= entries
                 Else
                     Dim organism = ExtractOrganism(oReader.ProteinDescription)
 
