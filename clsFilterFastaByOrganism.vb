@@ -27,6 +27,7 @@ Imports PRISM
 ''' </remarks>
 Public Class FilterFastaByOrganism
 
+    ' Ignore Spelling: yyyy-MM-dd, hh:mm:ss, UniProt, enterica, subsp, serovar
 
     Protected Const MAX_PROTEIN_DESCRIPTION_LENGTH As Integer = 7500
 
