@@ -21,7 +21,7 @@ Module modMain
     Public Const PROGRAM_DATE As String = "February 11, 2021"
 
     Private mInputFilePath As String
-    Private mOutputFolderPath As String
+    Private mOutputDirectoryPath As String
     Private mOrganismListFile As String
     Private mOrganismName As String
     Private mProteinListFile As String
@@ -72,16 +72,16 @@ Module modMain
             Dim success As Boolean
 
             If Not String.IsNullOrEmpty(mOrganismName) Then
-                success = organismFilter.FilterFastaOneOrganism(mInputFilePath, mOrganismName, mOutputFolderPath)
+                success = organismFilter.FilterFastaOneOrganism(mInputFilePath, mOrganismName, mOutputDirectoryPath)
 
             ElseIf Not String.IsNullOrEmpty(mOrganismListFile) Then
-                success = organismFilter.FilterFastaByOrganism(mInputFilePath, mOrganismListFile, mOutputFolderPath)
+                success = organismFilter.FilterFastaByOrganism(mInputFilePath, mOrganismListFile, mOutputDirectoryPath)
 
             ElseIf Not String.IsNullOrEmpty(mProteinListFile) Then
-                success = organismFilter.FilterFastaByProteinName(mInputFilePath, mProteinListFile, mOutputFolderPath)
+                success = organismFilter.FilterFastaByProteinName(mInputFilePath, mProteinListFile, mOutputDirectoryPath)
 
             Else
-                success = organismFilter.FindOrganismsInFasta(mInputFilePath, mOutputFolderPath)
+                success = organismFilter.FindOrganismsInFasta(mInputFilePath, mOutputDirectoryPath)
             End If
 
             If success Then
