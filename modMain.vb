@@ -114,37 +114,35 @@ Module modMain
                 Return False
             Else
 
-                ' Query objParseCommandLine to see if various parameters are present
-                With commandLineParser
-                    If .RetrieveValueForParameter("I", value) Then
-                        mInputFilePath = value
-                    ElseIf .NonSwitchParameterCount > 0 Then
-                        mInputFilePath = .RetrieveNonSwitchParameter(0)
-                    End If
+                ' Query commandLineParser to see if various parameters are present
 
-                    If .RetrieveValueForParameter("Org", value) Then
-                        mOrganismListFile = value
-                    End If
+                If commandLineParser.RetrieveValueForParameter("I", value) Then
+                    mInputFilePath = value
+                ElseIf commandLineParser.NonSwitchParameterCount > 0 Then
+                    mInputFilePath = commandLineParser.RetrieveNonSwitchParameter(0)
+                End If
 
-                    If .RetrieveValueForParameter("Organism", value) Then
-                        mOrganismName = value
-                    End If
+                If commandLineParser.RetrieveValueForParameter("Org", value) Then
+                    mOrganismListFile = value
+                End If
 
-                    If .RetrieveValueForParameter("O", value) Then
-                        mOutputFolderPath = value
-                    End If
+                If commandLineParser.RetrieveValueForParameter("Organism", value) Then
+                    mOrganismName = value
+                End If
 
-                    If .RetrieveValueForParameter("Prot", value) Then
-                        mProteinListFile = value
-                    End If
+                If commandLineParser.RetrieveValueForParameter("O", value) Then
+                    mOutputDirectoryPath = value
+                End If
 
-                    If .IsParameterPresent("Map") Then mCreateProteinToOrganismMapFile = True
+                If commandLineParser.RetrieveValueForParameter("Prot", value) Then
+                    mProteinListFile = value
+                End If
 
-                    If .IsParameterPresent("Desc") Then mSearchProteinDescriptions = True
+                If commandLineParser.IsParameterPresent("Map") Then mCreateProteinToOrganismMapFile = True
 
-                    If .IsParameterPresent("Verbose") Then mVerboseMode = True
+                If commandLineParser.IsParameterPresent("Desc") Then mSearchProteinDescriptions = True
 
-                End With
+                If commandLineParser.IsParameterPresent("Verbose") Then mVerboseMode = True
 
                 Return True
             End If

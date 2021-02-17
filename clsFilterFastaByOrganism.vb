@@ -299,14 +299,14 @@ Public Class FilterFastaByOrganism
                     WriteFastaFileEntry(writer, reader)
                 End If
 
-                If DateTime.UtcNow.Subtract(dtLastProgress).TotalSeconds >= 10 Then
-                    dtLastProgress = DateTime.UtcNow
-                    If VerboseMode Then Console.WriteLine()
-                    If VerboseMode Then Console.WriteLine("--------------------------------------------")
-                    ReportProgress("Working: " & oReader.PercentFileProcessed & "% complete")
-                    If VerboseMode Then Console.WriteLine("--------------------------------------------")
-                    If VerboseMode Then Console.WriteLine()
-                End If
+                If DateTime.UtcNow.Subtract(lastProgressTime).TotalSeconds < 10 Then Continue While
+
+                lastProgressTime = DateTime.UtcNow
+                If VerboseMode Then Console.WriteLine()
+                If VerboseMode Then Console.WriteLine("--------------------------------------------")
+                ReportProgress("Working: " & reader.PercentFileProcessed & "% complete")
+                If VerboseMode Then Console.WriteLine("--------------------------------------------")
+                If VerboseMode Then Console.WriteLine()
 
             End While
 
@@ -471,14 +471,15 @@ Public Class FilterFastaByOrganism
                     WriteFastaFileEntry(writer, reader)
                 End If
 
-                If DateTime.UtcNow.Subtract(dtLastProgress).TotalSeconds >= 10 Then
-                    dtLastProgress = DateTime.UtcNow
-                    If VerboseMode Then Console.WriteLine()
-                    If VerboseMode Then Console.WriteLine("--------------------------------------------")
-                    ReportProgress("Working: " & oReader.PercentFileProcessed & "% complete")
-                    If VerboseMode Then Console.WriteLine("--------------------------------------------")
-                    If VerboseMode Then Console.WriteLine()
-                End If
+                If DateTime.UtcNow.Subtract(lastProgressTime).TotalSeconds < 10 Then Continue While
+
+                lastProgressTime = DateTime.UtcNow
+                If VerboseMode Then Console.WriteLine()
+                If VerboseMode Then Console.WriteLine("--------------------------------------------")
+                ReportProgress("Working: " & reader.PercentFileProcessed & "% complete")
+                If VerboseMode Then Console.WriteLine("--------------------------------------------")
+                If VerboseMode Then Console.WriteLine()
+
 
             End While
 
