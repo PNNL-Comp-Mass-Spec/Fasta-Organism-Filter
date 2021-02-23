@@ -1,97 +1,117 @@
-== Fasta Organism Filter ==
+# Fasta Organism Filter
 
-This program reads a FASTA file and filters the proteins 
-by either organism name or protein name.
+This program reads a FASTA file and tries to determine the organism and/or
+taxonomy ID for each protein, searching for standard organism name formats in
+protein descriptions. You can optionally filter the proteins to create a new,
+filtered FASTA file. The program also supports filtering by protein name.
 
-Program modes 1 through 3
-- Filter by organism name, as listed in the protein description
-   - Run the program without /Org or /Organism to create a text file listing the organisms present
-   - Optionally include /Map to create a file mapping protein name to organism
-   - Use the /Org switch to filter with an organism list file
-	   - Either list exact organism names, or use flag RegEx: as mentioned below
-   - Use the /Organism switch to filter by organism name
+## Processing Modes
 
-Program mode 4
-- Filter by protein name, as listed in a text file
-   - Use the /Prot switch with a protein list file
-   - Either list exact protein names, or use flag RegEx: as mentioned below
+There are 5 processing modes:
 
-=== Details ===
+### Mode 1
 
-Program mode #1:
-FastaOrganismFilter.exe SourceFile.fasta [/O:OutputFolderPath] [/Map] [/Verbose]
-
-Program mode #2:
-FastaOrganismFilter.exe SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputFolderPath] [/Verbose]
-
-Program mode #3:
-FastaOrganismFilter.exe SourceFile.fasta /Organism:OrganismName [/O:OutputFolderPath] [/Verbose]
-
-Program mode #4:
-FastaOrganismFilter.exe SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputFolderPath] [/Desc] [/Verbose]
-
-
-The input file name is required
-Surround the filename with double quotes if it contains spaces
-
-Mode 1: will find the organisms present in the fasta file,
-creating an OrganismSummary file. First looks for a Uniprot sequence tag,
-for example OS=Homo Sapiens.  If that tag is not found, then looks for the
-name in the last set of square brackets in the protein description.
-If OS= is missing and the square brackets are missing, searches the
+The program will find the organisms present in the FASTA file, creating file
+SourceFasta_OrganismSummary.txt. The program first looks for UniProt species tags
+`OS=` and `OX=`, for example `OS=Homo Sapiens OX=9606`. If the `OS=` tag is not found, it
+looks for the text in the last set of square brackets in the protein description.
+If `OS=` is missing and the square brackets are missing, the program searches the
 entire description.
 
-Use /Map to also create a file mapping protein name to organism name
-(filename SourceFasta_ProteinOrganismMap.txt
+Optionally use `/Map` to also create a file mapping protein name to organism name
+(filename SourceFasta_ProteinOrganismMap.txt)
 
-Mode 2: use /Org to specify a text file listing organism names
-that should be used for filtering the fasta file. The program will create a
-new fasta file that only contains proteins from the organisms of interest
+### Mode 2
 
-The OrganismListFile should have one organism name per line
-Entries that start with 'RegEx:' will be treated as regular expressions.
-Names or RegEx values are first matched to Uniprot style OS=Organism entries
-If not a match, the protein is skipped. If no OS= entry is present, next looks
-for an organism name in square brackets. If no match to a [Organism] tag,
-the entire protein description is searched.
+Use `/Org` to specify a text file listing organism names or taxonomy IDs that
+should be used for filtering the FASTA file. The program will create a new FASTA
+file that only contains proteins from the organisms of interest.
 
-Mode 3: use /Organism to specify a single organism name
-to be used for filtering the fasta file. The * character is treated as a wildcard.
-The program will create a new fasta file that only contains proteins from that
-organism.
+The OrganismListFile should have one organism name per line. Entries that start
+with `RegEx:` will be treated as regular expressions to be matched against
+organism names. Entries that start with `TaxId:` will be treated as taxonomy IDs
+(only applicable if the FASTA file has `OX=` tags). Names or RegEx values are first
+matched to UniProt style OS=Organism entries. If no `OS= `entry is present, next
+looks for an organism name in square brackets. If no match to a [Organism] tag,
+the entire protein description is searched. Taxonomy IDs are matched to `OX=123456`
+entries. If not a match, the protein is skipped.
 
-Mode 4: use /Prot to filter by protein name, using the proteins listed in the given text file.
-The program will create a new fasta file that only contains the listed proteins.
+### Mode 3
 
-The ProteinListFile should have one protein name per line
-Protein names that start with 'RegEx:' will be treated as regular expressions
-for matching to protein names.
+Use `/Organism` to specify a single organism name to be used for filtering the
+FASTA file. The * character is treated as a wildcard. The program will create a
+new FASTA file that only contains proteins from that organism.
 
-When using Mode 4, optionally use switch /Desc to indicate that protein descriptions should also be searched
+### Mode 4
 
+Use `/Prot` to filter by protein name, using the proteins listed in the given text
+file. The program will create a new FASTA file that only contains the listed
+proteins.
 
-For all 4 modes, use /O to specify an output folder
-If /O is missing, the output files will be created in the same folder as the source file
+The ProteinListFile should have one protein name per line. Protein names that
+start with `RegEx:` will be treated as regular expressions for matching to
+protein names.
 
-Use /Verbose to see details on each match, including the RegEx expression or 
+When using Mode 4, optionally use switch `/Desc` to indicate that protein
+descriptions should also be searched. By default, the full protein description
+must match the names in the protein list file. To match a word inside the
+description, use a RegEx filter with wildcards, for example `RegEx:Cytochrome.+`
+or `RegEx:.+promoting.+`
+
+### Mode 5
+
+Use `/Tax` to filter by taxonomy ID, using the integers listed in the given text
+file. The program will create a new FASTA file that only contains proteins from
+the taxonomy IDs of interest.
+
+The TaxonomyIdListFile should have one taxonomy ID per line. Taxonomy IDs are
+integers, e.g. 9606 for homo sapiens.
+
+### Output Directory
+
+For all 5 modes, use `/O` to specify an output directory. If /O is missing, the
+output files will be created in the same directory as the source file.
+
+## Syntax
+
+Program mode #1:
+```
+FastaOrganismFilter.exe SourceFile.fasta [/O:OutputDirectoryPath] [/Map]
+```
+
+Program mode #2:
+```
+FastaOrganismFilter.exe SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputDirectoryPath] [/Verbose]
+```
+
+Program mode #3:
+```
+FastaOrganismFilter.exe SourceFile.fasta /Organism:OrganismName [/O:OutputDirectoryPath] [/Verbose]
+```
+
+Program mode #4:
+```
+FastaOrganismFilter.exe SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputDirectoryPath] [/Desc] [/Verbose]
+```
+
+Program mode #5:
+```
+FastaOrganismFilter.exe SourceFile.fasta /Tax:TaxonomyIdListFile.txt [/O:OutputDirectoryPath] [/Verbose]
+```
+
+Use `/Verbose` to see details on each match, including the RegEx expression or 
 search keyword that matches a protein name or description.
 
-=== Filtering by Protein Name ===
+## Contacts
 
-Create a text file with a list of protein names to retrieve, then run this program 
-with the /Prot switch.  Note that you can use the Protein Digestion Simulator to
-convert the fasta file to a tab-delimited text file listing the protein names 
-and descriptions.  That program also has the option of excluding the 
-protein sequences from the output file (to reduce file size).
+Written by Matthew Monroe for the Department of Energy (PNNL, Richland, WA) \
+E-mail: matthew.monroe@pnnl.gov or proteomics@pnnl.gov \
+Website: https://omics.pnl.gov/ or https://panomics.pnnl.gov/
 
--------------------------------------------------------------------------------
-Written by Matthew Monroe for the Department of Energy (PNNL, Richland, WA)
-Copyright 2014, Battelle Memorial Institute.  All Rights Reserved.
+## License
 
-E-mail: matthew.monroe@pnnl.gov or proteomics@pnnl.gov
-Website: https://omics.pnl.gov/ or https://github.com/pnnl-comp-mass-spec
--------------------------------------------------------------------------------
+The FASTA Organism Filter is licensed under the 2-Clause BSD License; 
+you may not use this file except in compliance with the License.  You may obtain 
+a copy of the License at https://opensource.org/licenses/BSD-2-Clause
 
-Licensed under the Apache License, Version 2.0; you may not use this file except 
-in compliance with the License.  You may obtain a copy of the License at 
-http://www.apache.org/licenses/LICENSE-2.0
+Copyright 2014 Battelle Memorial Institute
