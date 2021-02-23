@@ -1,5 +1,10 @@
 Fasta Organism Splitter
 
+Version 1.1.7724; February 23, 2021
+	- Updated ProteinFileReader DLL that can read .fasta.gz files
+	- Add option to filter by taxonomy ID numbers
+	- Convert to C#
+
 Version 1.0.6004; June 9, 2016
 	- Added switch /Desc
 		- Only valid when using switch /Prot (program mode 4)		
