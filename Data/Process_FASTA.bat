@@ -1,6 +1,6 @@
 @echo off
-Set ProgramPath=FastaOrganismFilter.exe
 
+Set ProgramPath=FastaOrganismFilter.exe
 If Exist ..\FastaOrganismFilter.exe     Set ProgramPath=..\FastaOrganismFilter.exe
 If Exist ..\Bin\FastaOrganismFilter.exe Set ProgramPath=..\Bin\FastaOrganismFilter.exe
 
@@ -46,3 +46,5 @@ echo -----------------------------------------------------------------
 @echo on
 %ProgramPath% Uniprot_10bacteria.fasta /tax:Bacteria_TaxonomyIDsToFind.txt
 @echo off
+
+pause
