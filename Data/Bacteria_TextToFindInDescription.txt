@@ -1,0 +1,3 @@
+Protein RnfH OS=Escherichia coli O81 (strain ED1a) OX=585397 GN=rnfH PE=3 SV=1
+RegEx:.+ribosomal.+
+RegEx:Cytochrome c.+

@@ -1,0 +1,11 @@
+Organism	TaxonomyID	Proteins	Genus	Species
+Escherichia coli O81 (strain ED1a)	585397	788	Escherichia	coli
+Domibacillus mangrovi	1714354	1589	Domibacillus	mangrovi
+Bacillus thuringiensis serovar pondicheriensis BGSC 4BA1	527029	3048	Bacillus	thuringiensis
+Paenibacillus methanolicus	582686	3557	Paenibacillus	methanolicus
+Capnocytophaga sp.	44737	3539	Capnocytophaga	sp.
+Minwuia thermotolerans	2056226	2131	Minwuia	thermotolerans
+Pseudoalteromonas sp. S1609	579505	1916	Pseudoalteromonas	sp.
+Alcanivoracaceae bacterium	2024895	560	Alcanivoracaceae	bacterium
+Hymenobacter jeollabukensis	2025313	906	Hymenobacter	jeollabukensis
+Fontibacillus phaseoli	1416533	869	Fontibacillus	phaseoli

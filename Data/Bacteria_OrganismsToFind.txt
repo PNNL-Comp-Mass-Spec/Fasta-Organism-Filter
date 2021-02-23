@@ -1,0 +1,5 @@
+Domibacillus mangrovi
+Pseudoalteromonas sp. S1609
+Hymenobacter jeollabukensis
+RegEx:Paeni.+
+TaxId:582686
