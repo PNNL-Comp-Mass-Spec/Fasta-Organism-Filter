@@ -27,9 +27,10 @@ namespace FastaOrganismFilter
 
         public static int Main(string[] args)
         {
-            var exeName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name;
+            var programName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name;
             var exePath = PRISM.FileProcessor.ProcessFilesOrDirectoriesBase.GetAppPath();
-            var cmdLineParser = new CommandLineParser<FastaFilterOptions>(exeName, GetAppVersion())
+            var exeName = Path.GetFileName(exePath);
+            var cmdLineParser = new CommandLineParser<FastaFilterOptions>(programName, GetAppVersion())
             {
                 ProgramInfo = GetProgramInfo(),
                 ContactInfo = "Program written by Matthew Monroe for PNNL (Richland, WA) in 2010" + Environment.NewLine +
@@ -37,7 +38,7 @@ namespace FastaOrganismFilter
                               "Website: https://omics.pnl.gov/ or https://panomics.pnnl.gov/"
             };
 
-            cmdLineParser.UsageExamples.Add("Program syntax:" + Environment.NewLine + Path.GetFileName(exePath) + "\n" +
+            cmdLineParser.UsageExamples.Add("Program syntax:" + Environment.NewLine + exeName + "\n" +
                                             " /I:InputFileNameOrDirectoryPath [/O:OutputDirectoryPath] [/Map]\n" +
                                             " [/Org:OrganismListFile.txt]\n" +
                                             " [/Organism:OrganismName]\n" +
