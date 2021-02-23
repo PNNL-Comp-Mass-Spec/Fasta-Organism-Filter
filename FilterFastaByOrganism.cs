@@ -33,9 +33,17 @@ namespace FastaOrganismFilter
         // Ignore Spelling: yyyy-MM-dd, hh:mm:ss, UniProt, enterica, subsp, serovar
 
         private const int MAX_PROTEIN_DESCRIPTION_LENGTH = 7500;
+
         private readonly Regex mFindSpeciesTag;
+        private readonly Regex mFindTaxonomyTag;
         private readonly Regex mFindNextTag;
 
+        private enum FilterModes
+        {
+            OrganismName = 0,
+            ProteinName = 1,
+            TaxonomyID = 2
+        }
 
         /// <summary>
         /// Processing Options
@@ -50,6 +58,9 @@ namespace FastaOrganismFilter
             Options = options;
 
             mFindSpeciesTag = new Regex("OS=(.+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+            mFindTaxonomyTag = new Regex(@"OX=(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
             mFindNextTag = new Regex(" [a-z]+=", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         }
 
@@ -61,23 +72,38 @@ namespace FastaOrganismFilter
             }
         }
 
-        private string ExtractSpecies(string proteinDescription)
+        private string ExtractSpecies(string proteinDescription, out int taxonomyId)
         {
+            taxonomyId = ExtractTaxonomyID(proteinDescription);
+
             // Look for the first occurrence of OS=
             // Adding a bogus extra tag at the end in case the last official tag is OS=
-            var match = mFindSpeciesTag.Match(proteinDescription + " XX=Ignore");
-            if (match.Success)
+            var organismMatch = mFindSpeciesTag.Match(proteinDescription + " XX=Ignore");
+
+            if (organismMatch.Success)
             {
-                var speciesTag = match.Groups[1].Value;
+                var speciesTag = organismMatch.Groups[1].Value;
                 var match2 = mFindNextTag.Match(speciesTag);
                 if (match2.Success)
                 {
-                    var species = speciesTag.Substring(0, match2.Index);
-                    return species;
+                    return speciesTag.Substring(0, match2.Index);
                 }
             }
 
             return string.Empty;
+        }
+
+        private int ExtractTaxonomyID(string proteinDescription)
+        {
+            // Look for the first occurrence of OX=
+            var taxonomyMatch = mFindTaxonomyTag.Match(proteinDescription);
+
+            if (!taxonomyMatch.Success)
+            {
+                return 0;
+            }
+
+            return int.TryParse(taxonomyMatch.Groups[1].Value, out var taxId) ? taxId : 0;
         }
 
         /// <summary>
@@ -143,20 +169,20 @@ namespace FastaOrganismFilter
                     return false;
                 }
 
-                // Keys in this dictionary are the organism names to filter on; values are meaningless integers
-                // The reason for using a dictionary is to provide fast lookups, but without case sensitivity
-                var organismNameFilters = new Dictionary<string, int>();
+                var organismNameFilters = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
                 var regExFilters = new Dictionary<string, Regex>();
+                var taxonomyIDs = new SortedSet<int>();
+
                 if (organismName.Contains("*"))
                 {
                     AddRegExExpression(regExFilters, organismName.Replace("*", ".+"));
                 }
                 else
                 {
-                    organismNameFilters.Add(organismName, 0);
+                    organismNameFilters.Add(organismName);
                 }
 
-                var badChars = new List<char>() { ' ', '\\', '/', ':', '*', '?', '.', '<', '>', '|' };
+                var badChars = new List<char> { ' ', '\\', '/', ':', '*', '?', '.', '<', '>', '|' };
                 var outputFileSuffix = "_";
                 foreach (var chCharacter in organismName)
                 {
@@ -171,7 +197,9 @@ namespace FastaOrganismFilter
                 }
 
                 outputFileSuffix = outputFileSuffix.TrimEnd('_');
-                var success = FilterFastaByOrganismWork(inputFilePath, outputDirectory, organismNameFilters, regExFilters, outputFileSuffix);
+                var success = FilterFastaByOrganismOrTaxonomyId(
+                    inputFilePath, outputDirectory, FilterModes.OrganismName, organismNameFilters, regExFilters, taxonomyIDs, outputFileSuffix);
+
                 return success;
             }
             catch (Exception ex)
@@ -192,6 +220,8 @@ namespace FastaOrganismFilter
         {
             try
             {
+                Console.WriteLine();
+
                 if (!ValidateInputAndOutputDirectories(inputFilePath, ref outputDirectoryPath, out var outputDirectory))
                 {
                     return false;
@@ -212,20 +242,20 @@ namespace FastaOrganismFilter
 
                 ShowMessage("Loading the organism name filters from " + organismListFile.Name);
 
-                // Keys in this dictionary are the organism names to filter on; values are meaningless integers
-                // The reason for using a dictionary is to provide fast lookups, but without case sensitivity
-                if (!ReadNameFilterFile(organismListFile, out var textFilters, out var regExFilters))
+                if (!ReadNameFilterFile(organismListFile, FilterModes.OrganismName, out var organismNameFilters, out var regExFilters, out var taxonomyIDs))
                 {
                     return false;
                 }
 
-                if (textFilters.Count == 0 && regExFilters.Count == 0)
+                if (organismNameFilters.Count == 0 && regExFilters.Count == 0 && taxonomyIDs.Count == 0)
                 {
                     ConsoleMsgUtils.ShowError("Organism list file is empty: " + organismListFile.FullName);
                     return false;
                 }
 
-                var success = FilterFastaByOrganismWork(inputFilePath, outputDirectory, textFilters, regExFilters);
+                var success = FilterFastaByOrganismOrTaxonomyId(
+                    inputFilePath, outputDirectory, FilterModes.OrganismName, organismNameFilters, regExFilters, taxonomyIDs);
+
                 return success;
             }
             catch (Exception ex)
@@ -235,30 +265,144 @@ namespace FastaOrganismFilter
             }
         }
 
+        /// <summary>
+        /// Filter the FASTA file using the taxonomy ID values specified in the taxonomy ID list file
+        /// </summary>
+        /// <param name="inputFilePath"></param>
+        /// <param name="taxonomyIdListFilePath"></param>
+        /// <param name="outputDirectoryPath"></param>
+        /// <returns>True if successful, false if an error</returns>
+        public bool FilterFastaByTaxonomyID(string inputFilePath, string taxonomyIdListFilePath, string outputDirectoryPath)
+        {
+            try
+            {
+                Console.WriteLine();
+
+                if (!ValidateInputAndOutputDirectories(inputFilePath, ref outputDirectoryPath, out var outputDirectory))
+                {
+                    return false;
+                }
+
+                if (string.IsNullOrWhiteSpace(taxonomyIdListFilePath))
+                {
+                    ConsoleMsgUtils.ShowError("Taxonomy ID list file not defined");
+                    return false;
+                }
+
+                var taxonomyIdListFile = new FileInfo(taxonomyIdListFilePath);
+                if (!taxonomyIdListFile.Exists)
+                {
+                    ConsoleMsgUtils.ShowError("Taxonomy ID list file not found: " + taxonomyIdListFile.FullName);
+                    return false;
+                }
+
+                ShowMessage("Loading taxonomy IDs from " + taxonomyIdListFile.Name);
+
+                var taxonomyIDs = new SortedSet<int>();
+
+                var lineNumber = 0;
+                try
+                {
+                    using var reader = new StreamReader(new FileStream(taxonomyIdListFile.FullName, FileMode.Open, FileAccess.Read, FileShare.Read));
+
+                    while (!reader.EndOfStream)
+                    {
+                        var dataLine = reader.ReadLine();
+
+                        lineNumber++;
+                        if (string.IsNullOrWhiteSpace(dataLine))
+                            continue;
+
+                        if (int.TryParse(dataLine, out var taxId))
+                        {
+                            taxonomyIDs.Add(taxId);
+                        }
+                        else if (lineNumber > 1)
+                        {
+                            // Warn of lines that do not have an integer, but skip the first line in case it's a header
+                            ShowMessage("  Warning: line {0:N0} is not an integer: {1}", lineNumber, dataLine);
+                        }
+                    }
+
+                    if (taxonomyIDs.Count > 0)
+                    {
+                        ShowMessage("Read {0:N0} taxonomy ID value{1} from {2}",
+                            taxonomyIDs.Count, Pluralize(taxonomyIDs.Count), taxonomyIdListFile.Name);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ConsoleMsgUtils.ShowError("Error in FilterFastaByTaxonomyID while reading the input file, line " + lineNumber, ex.Message);
+                    return false;
+                }
+
+                if (taxonomyIDs.Count == 0)
+                {
+                    ConsoleMsgUtils.ShowError("Taxonomy ID list file is empty: " + taxonomyIdListFile.FullName);
+                    return false;
+                }
+
+                var organismNameFilters = new SortedSet<string>();
+                var regExFilters = new Dictionary<string, Regex>();
+
+                var success = FilterFastaByOrganismOrTaxonomyId(
+                    inputFilePath, outputDirectory, FilterModes.TaxonomyID, organismNameFilters, regExFilters, taxonomyIDs);
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                ConsoleMsgUtils.ShowError("Error in FilterFastaByTaxonomyID", ex);
+                return false;
+            }
+        }
+
         // ReSharper disable once SuggestBaseTypeForParameter
-        private bool FilterFastaByOrganismWork(
+        /// <summary>
+        /// Filter the fasta file based on the data in organismNameFilters, regExFilters, or taxonomyIDs
+        /// </summary>
+        /// <param name="inputFilePath"></param>
+        /// <param name="outputDirectory"></param>
+        /// <param name="filterMode">Used to indicate the type of filter being used</param>
+        /// <param name="organismNameFilters">Sorted set of organism names</param>
+        /// <param name="regExFilters">Dictionary where keys are the RegEx text and values are compiled RegEx instances</param>
+        /// <param name="taxonomyIDs">Sorted set of taxonomy IDs</param>
+        /// <param name="outputFileSuffix"></param>
+        /// <returns>True if successful, false if an error</returns>
+        private bool FilterFastaByOrganismOrTaxonomyId(
             string inputFilePath,
             DirectoryInfo outputDirectory,
-            IDictionary<string, int> organismNameFilters,
+            FilterModes filterMode,
+            ICollection<string> organismNameFilters,
             Dictionary<string, Regex> regExFilters,
+            ICollection<int> taxonomyIDs,
             string outputFileSuffix = "")
         {
+            Console.WriteLine();
+
             var reader = new FastaFileReader();
-            var lastProgressTime = DateTime.UtcNow;
+
             if (!reader.OpenFile(inputFilePath))
             {
                 ConsoleMsgUtils.ShowError("Error opening the fasta file; aborting");
                 return false;
             }
 
+            var lastProgressTime = DateTime.UtcNow;
+            var proteinsRead = 0;
+            var proteinsWritten = 0;
+
             ShowMessage("Parsing " + Path.GetFileName(inputFilePath));
+            ShowMessage("Filtering by " + GetFilterModeDescription(filterMode));
+
             if (string.IsNullOrWhiteSpace(outputFileSuffix))
             {
                 outputFileSuffix = "_Filtered";
             }
 
             var baseName = Path.GetFileNameWithoutExtension(inputFilePath);
-            var filteredFastaFilePath = Path.Combine(outputDirectory.FullName, baseName + outputFileSuffix + ".fasta");
+            var filteredFastaFile = new FileInfo(Path.Combine(outputDirectory.FullName, baseName + outputFileSuffix + ".fasta"));
+
             StreamWriter matchInfoWriter = null;
             if (Options.VerboseMode)
             {
@@ -267,143 +411,192 @@ namespace FastaOrganismFilter
                 matchInfoWriter.WriteLine("Protein\tFilterMatch\tRegEx");
             }
 
-            ShowMessage("Creating " + Path.GetFileName(filteredFastaFilePath));
-            using (var writer = new StreamWriter(new FileStream(filteredFastaFilePath, FileMode.Create, FileAccess.Write, FileShare.Read)))
+            Console.WriteLine();
+            ShowMessage("Creating the filtered FASTA file:\n  " + GetCompactPath(filteredFastaFile, 100));
+
+            using var writer = new StreamWriter(new FileStream(filteredFastaFile.FullName, FileMode.Create, FileAccess.Write, FileShare.Read));
+
+            while (reader.ReadNextProteinEntry())
             {
-                while (reader.ReadNextProteinEntry())
+                bool keepProtein;
+                proteinsRead++;
+
+                // ReSharper disable once ConvertIfStatementToConditionalTernaryExpression
+                if (filterMode == FilterModes.TaxonomyID)
                 {
-                    var species = ExtractSpecies(reader.ProteinDescription);
-                    var keepProtein = false;
-                    var keepProteinFromDescription = false;
-                    if (!string.IsNullOrEmpty(species))
-                    {
-                        // UniProt Fasta file with OS= entries
-                        keepProtein = IsExactOrRegexMatch(reader.ProteinName, species, organismNameFilters, regExFilters, VerboseMode, matchInfoWriter);
-                    }
-                    else
-                    {
-                        var organism = ExtractOrganism(reader.ProteinDescription);
-                        if (!string.IsNullOrEmpty(organism))
-                        {
-                            // Match organism name within square brackets
-                            keepProtein = IsExactOrRegexMatch(reader.ProteinName, organism, organismNameFilters, regExFilters, VerboseMode, matchInfoWriter);
-                        }
-
-                        if (!keepProtein)
-                        {
-                            // Match the entire protein description
-                            keepProteinFromDescription = IsExactOrRegexMatch(reader.ProteinName, reader.ProteinDescription, organismNameFilters, regExFilters, VerboseMode, matchInfoWriter);
-                        }
-                    }
-
-                    if (keepProtein || keepProteinFromDescription)
-                    {
-                        WriteFastaFileEntry(writer, reader);
-                    }
-
-                    if (DateTime.UtcNow.Subtract(lastProgressTime).TotalSeconds < 10d)
-                        continue;
-
-                    lastProgressTime = DateTime.UtcNow;
-
-                    ShowOptionalBar(true);
-                    ReportProgress("Working: " + reader.PercentFileProcessed() + "% complete");
-                    ShowOptionalBar(false);
+                    var taxonomyId = ExtractTaxonomyID(reader.ProteinDescription);
+                    keepProtein = IsTaxonomyMatch(reader, taxonomyId, taxonomyIDs, matchInfoWriter);
                 }
+                else
+                {
+                    var species = ExtractSpecies(reader.ProteinDescription, out _);
+                    keepProtein = IsOrganismOrSpeciesMatch(reader, species, organismNameFilters, regExFilters, matchInfoWriter);
+                }
+
+                if (keepProtein)
+                {
+                    WriteFastaFileEntry(writer, reader);
+                    proteinsWritten++;
+                }
+
+                if (DateTime.UtcNow.Subtract(lastProgressTime).TotalSeconds < 10d)
+                    continue;
+
+                lastProgressTime = DateTime.UtcNow;
+
+                ShowOptionalBar(true);
+                ReportProgress(string.Format("Working: {0:F2}% complete; {1:N0} proteins matched", reader.PercentFileProcessed(), proteinsWritten));
+                ShowOptionalBar(false);
             }
 
             matchInfoWriter?.Close();
 
+            Console.WriteLine();
+            ShowMessage("Processing complete: wrote {0:N0} / {1:N0} protein{2} to {3}",
+                proteinsWritten, proteinsRead, Pluralize(proteinsRead), filteredFastaFile.Name);
+
             return true;
         }
 
-        private static bool IsExactOrRegexMatch(string proteinName, string textToSearch, IDictionary<string, int> itemsToMatchExactly, Dictionary<string, Regex> regExFilters, bool showMessages, TextWriter matchInfoWriter)
+        private static bool IsExactOrRegexMatch(
+            string proteinName,
+            string textToSearch,
+            ICollection<string> itemsToMatchExactly,
+            Dictionary<string, Regex> regExFilters,
+            bool showMessages,
+            TextWriter matchInfoWriter)
         {
-            var keepProtein = false;
-            if (itemsToMatchExactly.ContainsKey(textToSearch))
+            if (itemsToMatchExactly.Contains(textToSearch))
             {
-                keepProtein = true;
                 if (showMessages)
                 {
-                    Console.WriteLine("Protein " + proteinName + " matched " + textToSearch);
+                    ShowMessage("Protein {0,-15} matched '{1}'", proteinName, textToSearch);
                 }
 
                 matchInfoWriter?.WriteLine(proteinName + '\t' + textToSearch);
+                return true;
             }
-            else
+
+            foreach (var regExSpec in regExFilters)
             {
-                foreach (var regExSpec in regExFilters)
+                var match = regExSpec.Value.Match(textToSearch);
+                if (!match.Success)
+                    continue;
+
+                if (showMessages)
                 {
-                    var match = regExSpec.Value.Match(textToSearch);
-                    if (match.Success)
-                    {
-                        keepProtein = true;
-                        if (showMessages)
-                        {
-                            var contextIndexStart = match.Index - 5;
-                            var contextIndexEnd = match.Index + match.Value.Length + 10;
-                            if (contextIndexStart < 0)
-                                contextIndexStart = 0;
-                            if (contextIndexEnd >= textToSearch.Length)
-                                contextIndexEnd = textToSearch.Length - 1;
-                            Console.WriteLine("Protein " + proteinName + " matched " + match.Value + " in: " + textToSearch.Substring(contextIndexStart, contextIndexEnd - contextIndexStart));
-                        }
+                    var contextIndexStart = match.Index - 5;
+                    var contextIndexEnd = match.Index + match.Value.Length + 10;
 
-                        matchInfoWriter?.WriteLine(proteinName + '\t' + match.Value + '\t' + regExSpec.Key);
+                    if (contextIndexStart < 0)
+                        contextIndexStart = 0;
 
-                        break;
-                    }
+                    if (contextIndexEnd >= textToSearch.Length)
+                        contextIndexEnd = textToSearch.Length - 1;
+
+                    ShowMessage("Protein {0,-15} matched '{1}' in '{2}'",
+                        proteinName, match.Value,
+                        textToSearch.Substring(contextIndexStart, contextIndexEnd - contextIndexStart));
                 }
+
+                matchInfoWriter?.WriteLine(proteinName + '\t' + match.Value + '\t' + regExSpec.Key);
+                return true;
             }
 
-            return keepProtein;
+            return false;
+        }
+
+        private bool IsOrganismOrSpeciesMatch(
+            ProteinFileReaderBaseClass reader,
+            string species,
+            ICollection<string> organismNameFilters,
+            Dictionary<string, Regex> regExFilters,
+            TextWriter matchInfoWriter)
+        {
+            if (!string.IsNullOrEmpty(species))
+            {
+                // UniProt Fasta file with OS= entries
+                return IsExactOrRegexMatch(reader.ProteinName, species, organismNameFilters, regExFilters, Options.VerboseMode, matchInfoWriter);
+            }
+
+            var organism = ExtractOrganism(reader.ProteinDescription);
+
+            if (!string.IsNullOrEmpty(organism))
+            {
+                // Match organism name within square brackets
+                var keepProtein = IsExactOrRegexMatch(reader.ProteinName, organism, organismNameFilters, regExFilters, Options.VerboseMode, matchInfoWriter);
+                if (keepProtein)
+                    return true;
+            }
+
+            // Match the entire protein description
+            return IsExactOrRegexMatch(reader.ProteinName, reader.ProteinDescription, organismNameFilters, regExFilters, Options.VerboseMode, matchInfoWriter);
+        }
+
+        private bool IsTaxonomyMatch(
+            ProteinFileReaderBaseClass reader,
+            int taxonomyId,
+            ICollection<int> taxonomyIDs,
+            TextWriter matchInfoWriter)
+        {
+            if (!taxonomyIDs.Contains(taxonomyId))
+                return false;
+
+            if (Options.VerboseMode)
+            {
+                ShowMessage("Protein {0,-15} matched taxonomy ID {1}", reader.ProteinName, taxonomyId);
+            }
+
+            matchInfoWriter?.WriteLine(reader.ProteinName + '\t' + taxonomyId);
+            return true;
         }
 
         /// <summary>
         /// Filter the FASTA file using the protein names in the protein list file
         /// </summary>
         /// <param name="inputFilePath"></param>
-        /// <param name="proteinListFile"></param>
+        /// <param name="proteinListFilePath"></param>
         /// <param name="outputDirectoryPath"></param>
         /// <returns>True if successful, false if an error</returns>
-        public bool FilterFastaByProteinName(string inputFilePath, string proteinListFile, string outputDirectoryPath)
+        public bool FilterFastaByProteinName(string inputFilePath, string proteinListFilePath, string outputDirectoryPath)
         {
             try
             {
+                Console.WriteLine();
+
                 if (!ValidateInputAndOutputDirectories(inputFilePath, ref outputDirectoryPath, out var outputDirectory))
                 {
                     return false;
                 }
 
-                if (string.IsNullOrWhiteSpace(proteinListFile))
+                if (string.IsNullOrWhiteSpace(proteinListFilePath))
                 {
                     ConsoleMsgUtils.ShowError("Protein list file not defined");
                     return false;
                 }
 
-                var fiProteinListFile = new FileInfo(proteinListFile);
-                if (!fiProteinListFile.Exists)
+                var proteinListFile = new FileInfo(proteinListFilePath);
+                if (!proteinListFile.Exists)
                 {
-                    ConsoleMsgUtils.ShowError("Protein list file not found: " + fiProteinListFile.FullName);
+                    ConsoleMsgUtils.ShowError("Protein list file not found: " + proteinListFile.FullName);
                     return false;
                 }
 
-                ShowMessage("Loading the protein name filters from " + fiProteinListFile.Name);
+                ShowMessage("Loading the protein name filters from " + proteinListFile.Name);
 
-                // Keys in this dictionary are the protein names to filter on; values are meaningless integers
-                // The reason for using a dictionary is to provide fast lookups, but without case sensitivity
-                if (!ReadNameFilterFile(fiProteinListFile, out var textFilters, out var regExFilters))
+                if (!ReadNameFilterFile(proteinListFile, FilterModes.ProteinName, out var proteinNameFilters, out var regExFilters, out _))
                 {
                     return false;
                 }
 
-                if (textFilters.Count == 0 && regExFilters.Count == 0)
+                if (proteinNameFilters.Count == 0 && regExFilters.Count == 0)
                 {
-                    ConsoleMsgUtils.ShowError("Protein list file is empty: " + fiProteinListFile.FullName);
+                    ConsoleMsgUtils.ShowError("Protein list file is empty: " + proteinListFile.FullName);
                     return false;
                 }
 
-                var success = FilterFastaByProteinWork(inputFilePath, outputDirectory, textFilters, regExFilters);
+                var success = FilterFastaByProteinWork(inputFilePath, outputDirectory, proteinNameFilters, regExFilters);
+
                 return success;
             }
             catch (Exception ex)
@@ -417,26 +610,35 @@ namespace FastaOrganismFilter
         private bool FilterFastaByProteinWork(
             string inputFilePath,
             DirectoryInfo outputDirectory,
-            IDictionary<string, int> textFilters,
+            ICollection<string> proteinNameFilters,
             Dictionary<string, Regex> regExFilters,
             string outputFileSuffix = "")
         {
+            Console.WriteLine();
+
             var reader = new FastaFileReader();
-            var lastProgressTime = DateTime.UtcNow;
+
             if (!reader.OpenFile(inputFilePath))
             {
                 ConsoleMsgUtils.ShowError("Error opening the fasta file; aborting");
                 return false;
             }
 
+            var lastProgressTime = DateTime.UtcNow;
+            var proteinsRead = 0;
+            var proteinsWritten = 0;
+
             ShowMessage("Parsing " + Path.GetFileName(inputFilePath));
+            ShowMessage("Filtering by " + GetFilterModeDescription(FilterModes.ProteinName));
+
             if (string.IsNullOrWhiteSpace(outputFileSuffix))
             {
                 outputFileSuffix = "_Filtered";
             }
 
             var baseName = Path.GetFileNameWithoutExtension(inputFilePath);
-            var filteredFastaFilePath = Path.Combine(outputDirectory.FullName, baseName + outputFileSuffix + ".fasta");
+            var filteredFastaFile = new FileInfo(Path.Combine(outputDirectory.FullName, baseName + outputFileSuffix + ".fasta"));
+
             StreamWriter matchInfoWriter = null;
             if (Options.VerboseMode)
             {
@@ -445,35 +647,48 @@ namespace FastaOrganismFilter
                 matchInfoWriter.WriteLine("Protein\tFilterMatch\tRegEx");
             }
 
-            ShowMessage("Creating " + Path.GetFileName(filteredFastaFilePath));
-            using (var writer = new StreamWriter(new FileStream(filteredFastaFilePath, FileMode.Create, FileAccess.Write, FileShare.Read)))
+            Console.WriteLine();
+            ShowMessage("Creating the filtered FASTA file:\n  " + GetCompactPath(filteredFastaFile, 100));
+
+            using var writer = new StreamWriter(new FileStream(filteredFastaFile.FullName, FileMode.Create, FileAccess.Write, FileShare.Read));
+
+            while (reader.ReadNextProteinEntry())
             {
-                while (reader.ReadNextProteinEntry())
+                proteinsRead++;
+
+                var keepProtein = IsExactOrRegexMatch(reader.ProteinName, reader.ProteinName, proteinNameFilters, regExFilters, Options.VerboseMode, matchInfoWriter);
+
+                bool keepProteinFromDescription;
+                if (!keepProtein && Options.SearchProteinDescriptions)
                 {
-                    var keepProtein = IsExactOrRegexMatch(reader.ProteinName, reader.ProteinName, textFilters, regExFilters, VerboseMode, matchInfoWriter);
-                    var keepProteinFromDescription = false;
-                    if (!keepProtein && SearchProteinDescriptions)
-                    {
-                        keepProteinFromDescription = IsExactOrRegexMatch(reader.ProteinName, reader.ProteinDescription, textFilters, regExFilters, VerboseMode, matchInfoWriter);
-                    }
-
-                    if (keepProtein || keepProteinFromDescription)
-                    {
-                        WriteFastaFileEntry(writer, reader);
-                    }
-
-                    if (DateTime.UtcNow.Subtract(lastProgressTime).TotalSeconds < 10d)
-                        continue;
-
-                    lastProgressTime = DateTime.UtcNow;
-
-                    ShowOptionalBar(true);
-                    ReportProgress("Working: " + reader.PercentFileProcessed() + "% complete");
-                    ShowOptionalBar(false);
+                    keepProteinFromDescription = IsExactOrRegexMatch(reader.ProteinName, reader.ProteinDescription, proteinNameFilters, regExFilters, Options.VerboseMode, matchInfoWriter);
                 }
+                else
+                {
+                    keepProteinFromDescription = false;
+                }
+
+                if (keepProtein || keepProteinFromDescription)
+                {
+                    WriteFastaFileEntry(writer, reader);
+                    proteinsWritten++;
+                }
+
+                if (DateTime.UtcNow.Subtract(lastProgressTime).TotalSeconds < 10d)
+                    continue;
+
+                lastProgressTime = DateTime.UtcNow;
+
+                ShowOptionalBar(true);
+                ReportProgress(string.Format("Working: {0:F2}% complete; {1:N0} proteins matched", reader.PercentFileProcessed(), proteinsWritten));
+                ShowOptionalBar(false);
             }
 
             matchInfoWriter?.Close();
+
+            Console.WriteLine();
+            ShowMessage("Processing complete: wrote {0:N0} / {1:N0} protein{2} to {3}",
+                proteinsWritten, proteinsRead, Pluralize(proteinsRead), filteredFastaFile.Name);
 
             return true;
         }
@@ -488,16 +703,23 @@ namespace FastaOrganismFilter
         {
             try
             {
-                var reader = new FastaFileReader();
-                var lastProgressTime = DateTime.UtcNow;
+                Console.WriteLine();
+
+                var reader = new FastaFileReader
+                {
+                    DiscardProteinResidues = true
+                };
 
                 if (!ValidateInputAndOutputDirectories(inputFilePath, ref outputDirectoryPath, out var outputDirectory))
                 {
                     return false;
                 }
 
-                // Key is organism name, value is protein usage count
-                var lstOrganisms = new Dictionary<string, int>();
+                var lastProgressTime = DateTime.UtcNow;
+
+                // Key is organism name, value is organism info class
+                var organismInfo = new Dictionary<string, OrganismInfo>();
+
                 if (!reader.OpenFile(inputFilePath))
                 {
                     ConsoleMsgUtils.ShowError("Error opening the fasta file; aborting");
@@ -505,19 +727,26 @@ namespace FastaOrganismFilter
                 }
 
                 ShowMessage("Parsing " + Path.GetFileName(inputFilePath));
+                ShowMessage("Searching for organism names");
+
                 var baseName = Path.GetFileNameWithoutExtension(inputFilePath);
+
+                var mapFile = new FileInfo(Path.Combine(outputDirectory.FullName, baseName + "_ProteinOrganismMap.txt"));
+
                 StreamWriter mapFileWriter = null;
-                var mapFilePath = Path.Combine(outputDirectory.FullName, baseName + "_ProteinOrganismMap.txt");
-                if (CreateProteinToOrganismMapFile)
+                if (Options.CreateProteinToOrganismMapFile)
                 {
-                    ShowMessage("Creating " + Path.GetFileName(mapFilePath));
-                    mapFileWriter = new StreamWriter(new FileStream(mapFilePath, FileMode.Create, FileAccess.Write, FileShare.Read));
-                    mapFileWriter.WriteLine("Protein\tOrganism");
+                    Console.WriteLine();
+                    ShowMessage("Creating the protein to organism map file:\n  " + GetCompactPath(mapFile, 100));
+
+                    mapFileWriter = new StreamWriter(new FileStream(mapFile.FullName, FileMode.Create, FileAccess.Write, FileShare.Read));
+                    mapFileWriter.WriteLine("Protein\tOrganism\tTaxonomyID");
                 }
 
                 while (reader.ReadNextProteinEntry())
                 {
-                    var organism = ExtractSpecies(reader.ProteinDescription);
+                    var organism = ExtractSpecies(reader.ProteinDescription, out var taxonomyID);
+
                     if (string.IsNullOrEmpty(organism))
                     {
                         organism = ExtractOrganism(reader.ProteinDescription);
@@ -529,16 +758,17 @@ namespace FastaOrganismFilter
                         continue;
                     }
 
-                    if (lstOrganisms.TryGetValue(organism, out var proteinCount))
+                    if (organismInfo.TryGetValue(organism, out var organismStats))
                     {
-                        lstOrganisms[organism] = proteinCount + 1;
+                        organismStats.ObservationCount++;
                     }
                     else
                     {
-                        lstOrganisms.Add(organism, 1);
+                        var newOrganism = new OrganismInfo(organism, taxonomyID) { ObservationCount = 1 };
+                        organismInfo.Add(organism, newOrganism);
                     }
 
-                    mapFileWriter?.WriteLine(reader.ProteinName + '\t' + organism);
+                    mapFileWriter?.WriteLine(reader.ProteinName + '\t' + organism + '\t' + taxonomyID);
 
                     if (DateTime.UtcNow.Subtract(lastProgressTime).TotalSeconds < 10)
                         continue;
@@ -546,22 +776,25 @@ namespace FastaOrganismFilter
                     lastProgressTime = DateTime.UtcNow;
 
                     ShowOptionalBar(true);
-                    ReportProgress("Working: " + reader.PercentFileProcessed() + "% complete");
+                    ReportProgress(string.Format("Working: {0:F1}% complete", reader.PercentFileProcessed()));
                     ShowOptionalBar(false);
                 }
 
                 mapFileWriter?.Close();
 
-                var organismSummaryFilePath = Path.Combine(outputDirectory.FullName, baseName + "_OrganismSummary.txt");
-                ShowMessage("Creating " + Path.GetFileName(organismSummaryFilePath));
+                var organismSummaryFile = new FileInfo(Path.Combine(outputDirectory.FullName, baseName + "_OrganismSummary.txt"));
+
+                Console.WriteLine();
+                ShowMessage("Creating the Organism Summary file:\n  " + GetCompactPath(organismSummaryFile, 100));
 
                 // Now write out the unique list of organisms
-                using var summaryWriter = new StreamWriter(new FileStream(organismSummaryFilePath, FileMode.Create, FileAccess.Write, FileShare.Read));
+                using var summaryWriter = new StreamWriter(new FileStream(organismSummaryFile.FullName, FileMode.Create, FileAccess.Write, FileShare.Read));
 
-                summaryWriter.WriteLine("Organism\tProteins\tGenus\tSpecies");
+                summaryWriter.WriteLine("Organism\tTaxonomyID\tProteins\tGenus\tSpecies");
 
-                var organismsSorted = from item in lstOrganisms select item;
-                var lstSquareBrackets = new[] { '[', ']' };
+                var organismsSorted = from item in organismInfo select item;
+                var squareBrackets = new[] { '[', ']' };
+                var dataToWrite = new List<string>();
 
                 foreach (var organism in organismsSorted)
                 {
@@ -570,15 +803,25 @@ namespace FastaOrganismFilter
                     var nameParts = organism.Key.Split(' ').ToList();
                     if (nameParts.Count > 0)
                     {
-                        genus = nameParts[0].Trim(lstSquareBrackets);
+                        genus = nameParts[0].Trim(squareBrackets);
                         if (nameParts.Count > 1)
                         {
                             species = nameParts[1];
                         }
                     }
 
-                    summaryWriter.WriteLine(organism.Key + '\t' + organism.Value + '\t' + genus + '\t' + species);
+                    dataToWrite.Clear();
+                    dataToWrite.Add(organism.Key);
+                    dataToWrite.Add(organism.Value.TaxonomyID.ToString());
+                    dataToWrite.Add(organism.Value.ObservationCount.ToString());
+                    dataToWrite.Add(genus);
+                    dataToWrite.Add(species);
+
+                    summaryWriter.WriteLine(string.Join("\t", dataToWrite));
                 }
+
+                Console.WriteLine();
+                ShowMessage("Processing complete: found {0} organism{1}", organismInfo.Count, Pluralize(organismInfo.Count));
             }
             catch (Exception ex)
             {
@@ -589,11 +832,68 @@ namespace FastaOrganismFilter
             return true;
         }
 
-        // ReSharper disable once SuggestBaseTypeForParameter
-        private bool ReadNameFilterFile(FileInfo nameListFile, out Dictionary<string, int> textFilters, out Dictionary<string, Regex> regExFilters)
+        /// <summary>
+        /// Shorten the full path to the file to the given length using PathUtils.CompactPathString
+        /// If the shortened path does not contain the full filename, update the shortened path to include it
+        /// </summary>
+        /// <param name="filteredFastaFile"></param>
+        /// <param name="maxLength"></param>
+        private string GetCompactPath(FileSystemInfo filteredFastaFile, int maxLength)
         {
-            textFilters = new Dictionary<string, int>((int)StringComparison.CurrentCultureIgnoreCase);
+            var compactPath = PathUtils.CompactPathString(filteredFastaFile.FullName, maxLength);
+            if (compactPath.EndsWith(filteredFastaFile.Name))
+                return compactPath;
+
+            var lastSlash = compactPath.LastIndexOf(Path.DirectorySeparatorChar);
+            if (lastSlash < 0)
+                return compactPath;
+
+            var directoryPath = compactPath.Substring(0, lastSlash);
+            return Path.Combine(directoryPath, filteredFastaFile.Name);
+        }
+
+        /// <summary>
+        /// Return s if the count is not 1
+        /// </summary>
+        /// <param name="count"></param>
+        /// <returns>Either s or an empty string</returns>
+        private static string Pluralize(int count)
+        {
+            return count == 1 ? string.Empty : "s";
+        }
+
+        private static string GetFilterModeDescription(FilterModes filterMode)
+        {
+            return filterMode switch
+            {
+                FilterModes.OrganismName => "organism name",
+                FilterModes.ProteinName => "protein name",
+                FilterModes.TaxonomyID => "taxonomy ID",
+                _ => "??"
+            };
+        }
+
+        // ReSharper disable once SuggestBaseTypeForParameter
+        /// <summary>
+        /// Read organism names, protein names or taxonomy IDs from the given text file
+        /// </summary>
+        /// <param name="nameListFile"></param>
+        /// <param name="filterMode">Indicates the current filter mode</param>
+        /// <param name="organismOrProteinNameFilters">Sorted set of organism names</param>
+        /// <param name="regExFilters">Dictionary where keys are the RegEx text and values are compiled RegEx instances</param>
+        /// <param name="taxonomyIDs">Sorted set of taxonomy IDs</param>
+        /// <returns>True if successful, false if an error</returns>
+        private bool ReadNameFilterFile(
+            FileInfo nameListFile,
+            FilterModes filterMode,
+            out SortedSet<string> organismOrProteinNameFilters,
+            out Dictionary<string, Regex> regExFilters,
+            out SortedSet<int> taxonomyIDs)
+        {
+            organismOrProteinNameFilters = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
             regExFilters = new Dictionary<string, Regex>();
+            taxonomyIDs = new SortedSet<int>();
+
             var lineNumber = 0;
             try
             {
@@ -602,12 +902,15 @@ namespace FastaOrganismFilter
                 while (!reader.EndOfStream)
                 {
                     var dataLine = reader.ReadLine();
+
                     lineNumber++;
                     if (string.IsNullOrWhiteSpace(dataLine))
                         continue;
 
-                    // Check for "RegEx:"
-                    if (dataLine.StartsWith("RegEx:"))
+                    // Look for lines that start with "RegEx:" or "TaxId:"
+                    // If no match, look for an integer (indicating Taxonomy ID)
+                    // If no match, assume an organism name
+                    if (dataLine.StartsWith("RegEx:", StringComparison.OrdinalIgnoreCase))
                     {
                         var regExFilter = dataLine.Substring("RegEx:".Length);
                         if (string.IsNullOrWhiteSpace(regExFilter))
@@ -618,10 +921,51 @@ namespace FastaOrganismFilter
 
                         AddRegExExpression(regExFilters, regExFilter);
                     }
-                    else if (!textFilters.ContainsKey(dataLine))
+                    else if (filterMode != FilterModes.ProteinName && dataLine.StartsWith("TaxId:", StringComparison.OrdinalIgnoreCase))
                     {
-                        textFilters.Add(dataLine, lineNumber);
+                        var taxonomyId = dataLine.Substring("TaxId:".Length);
+                        if (string.IsNullOrWhiteSpace(taxonomyId))
+                        {
+                            ShowMessage("  Warning: empty TaxId defined on line " + lineNumber);
+                            continue;
+                        }
+
+                        if (int.TryParse(taxonomyId, out var taxId))
+                        {
+                            taxonomyIDs.Add(taxId);
+                        }
+                        else
+                        {
+                            ShowMessage("  Warning: TaxId defined on line {0:N0} is not an integer: {1}", lineNumber, taxonomyId);
+                        }
                     }
+                    else
+                    {
+                        if (!organismOrProteinNameFilters.Contains(dataLine))
+                        {
+                            organismOrProteinNameFilters.Add(dataLine);
+                        }
+                    }
+                }
+
+                var entityDescription = filterMode == FilterModes.ProteinName ? "protein" : "organism";
+
+                if (organismOrProteinNameFilters.Count > 0)
+                {
+                    ShowMessage("Read {0:N0} {1} name{2} from {3}",
+                        organismOrProteinNameFilters.Count, entityDescription, Pluralize(organismOrProteinNameFilters.Count), nameListFile.Name);
+                }
+
+                if (regExFilters.Count > 0)
+                {
+                    ShowMessage("Read {0:N0} {1} name RegEx filter{2} from {3}",
+                        regExFilters.Count, entityDescription, Pluralize(regExFilters.Count), nameListFile.Name);
+                }
+
+                if (taxonomyIDs.Count > 0)
+                {
+                    ShowMessage("Read {0:N0} taxonomy ID value{1} from {2}",
+                        taxonomyIDs.Count, Pluralize(taxonomyIDs.Count), nameListFile.Name);
                 }
             }
             catch (Exception ex)
@@ -638,9 +982,14 @@ namespace FastaOrganismFilter
             Console.WriteLine(DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") + " " + strProgress);
         }
 
-        private void ShowMessage(string message)
+        private static void ShowMessage(string message)
         {
             Console.WriteLine(message);
+        }
+
+        private static void ShowMessage(string format, params object[] arg)
+        {
+            Console.WriteLine(format, arg);
         }
 
         private void ShowOptionalBar(bool topBar)
