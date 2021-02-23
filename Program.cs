@@ -1,12 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using PRISM;
 
 namespace FastaOrganismFilter
 {
     /// <summary>
-    /// This program reads a fasta file and finds the organism info defined in the protein description lines
-    /// It optionally creates a filtered fasta file containing only the proteins of interest
+    /// This program reads a FASTA file and finds the organism info defined in the protein description lines
+    /// It optionally creates a filtered FASTA file containing only the proteins of interest
     /// </summary>
     /// <remarks>
     /// <para>
@@ -20,66 +21,57 @@ namespace FastaOrganismFilter
     /// </remarks>
     internal static class Program
     {
-        public const string PROGRAM_DATE = "February 16, 2021";
+        public const string PROGRAM_DATE = "February 22, 2021";
 
-        private static string mInputFilePath;
-        private static string mOutputDirectoryPath;
-        private static string mOrganismListFile;
-        private static string mOrganismName;
-        private static string mProteinListFile;
-        private static bool mCreateProteinToOrganismMapFile;
-        private static bool mSearchProteinDescriptions;
-        private static bool mVerboseMode;
+        // Ignore Spelling: Prot, Desc, UniProt, Conf
 
-        // Ignore Spelling: Prot, Desc, UniProt
-
-        public static int Main()
+        public static int Main(string[] args)
         {
+            var exeName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name;
+            var exePath = PRISM.FileProcessor.ProcessFilesOrDirectoriesBase.GetAppPath();
+            var cmdLineParser = new CommandLineParser<FastaFilterOptions>(exeName, GetAppVersion())
+            {
+                ProgramInfo = GetProgramInfo(),
+                ContactInfo = "Program written by Matthew Monroe for PNNL (Richland, WA) in 2010" + Environment.NewLine +
+                              "E-mail: matthew.monroe@pnnl.gov or proteomics@pnnl.gov" + Environment.NewLine +
+                              "Website: https://omics.pnl.gov/ or https://panomics.pnnl.gov/"
+            };
+
+            cmdLineParser.UsageExamples.Add("Program syntax:" + Environment.NewLine + Path.GetFileName(exePath) + "\n" +
+                                            " /I:InputFileNameOrDirectoryPath [/O:OutputDirectoryPath] [/Map]\n" +
+                                            " [/Org:OrganismListFile.txt]\n" +
+                                            " [/Organism:OrganismName]\n" +
+                                            " [/Prot:ProteinListFile.txt] [/Desc]\n" +
+                                            " [/Tax:TaxonomyIdListFile.txt]\n" +
+                                            " [/Verbose]");
+
+            cmdLineParser.UsageExamples.Add("Program mode #1:\n" + exeName + " SourceFile.fasta [/O:OutputDirectoryPath] [/Map]");
+            cmdLineParser.UsageExamples.Add("Program mode #2:\n" + exeName + " SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputDirectoryPath] [/Verbose]");
+            cmdLineParser.UsageExamples.Add("Program mode #3:\n" + exeName + " SourceFile.fasta /Organism:OrganismName [/O:OutputDirectoryPath]");
+            cmdLineParser.UsageExamples.Add("Program mode #4:\n" + exeName + " SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputDirectoryPath] [/Desc]");
+            cmdLineParser.UsageExamples.Add("Program mode #5:\n" + exeName + " SourceFile.fasta /Tax:TaxonomyIdListFile.txt [/O:OutputDirectoryPath]");
+
+            // The default argument name for parameter files is /ParamFile or -ParamFile
+            // Also allow /Conf or /P
+            cmdLineParser.AddParamFileKey("Conf");
+            cmdLineParser.AddParamFileKey("P");
+
+            var result = cmdLineParser.ParseArgs(args);
+            var options = result.ParsedResults;
+            if (!result.Success || !options.Validate())
+            {
+                // Delay for 750 msec in case the user double clicked this file from within Windows Explorer (or started the program via a shortcut)
+                System.Threading.Thread.Sleep(750);
+                return -1;
+            }
+
             try
             {
-                // Set the default values
-                mInputFilePath = string.Empty;
-                mOrganismListFile = string.Empty;
-                mOrganismName = string.Empty;
-                mProteinListFile = string.Empty;
-                var proceed = false;
-                var commandLineParser = new clsParseCommandLine();
-                if (commandLineParser.ParseCommandLine())
-                {
-                    if (SetOptionsUsingCommandLineParameters(commandLineParser))
-                        proceed = true;
-                }
+                var organismFilter = new FilterFastaByOrganism(options);
 
-                if (!proceed || commandLineParser.NeedToShowHelp || commandLineParser.ParameterCount + commandLineParser.NonSwitchParameterCount == 0 || mInputFilePath.Length == 0)
-                {
-                    ShowProgramHelp();
-                    return -1;
-                }
+                organismFilter.ShowCurrentProcessingOptions();
 
-                var organismFilter = new FilterFastaByOrganism()
-                {
-                    CreateProteinToOrganismMapFile = mCreateProteinToOrganismMapFile,
-                    SearchProteinDescriptions = mSearchProteinDescriptions,
-                    VerboseMode = mVerboseMode
-                };
-
-                bool success;
-                if (!string.IsNullOrEmpty(mOrganismName))
-                {
-                    success = organismFilter.FilterFastaOneOrganism(mInputFilePath, mOrganismName, mOutputDirectoryPath);
-                }
-                else if (!string.IsNullOrEmpty(mOrganismListFile))
-                {
-                    success = organismFilter.FilterFastaByOrganismName(mInputFilePath, mOrganismListFile, mOutputDirectoryPath);
-                }
-                else if (!string.IsNullOrEmpty(mProteinListFile))
-                {
-                    success = organismFilter.FilterFastaByProteinName(mInputFilePath, mProteinListFile, mOutputDirectoryPath);
-                }
-                else
-                {
-                    success = organismFilter.FindOrganismsInFasta(mInputFilePath, mOutputDirectoryPath);
-                }
+                var success = organismFilter.StartProcessing();
 
                 if (success)
                 {
@@ -100,165 +92,100 @@ namespace FastaOrganismFilter
             return System.Reflection.Assembly.GetExecutingAssembly().GetName().Version + " (" + PROGRAM_DATE + ")";
         }
 
-        /// <summary>
-        /// Set options using command line parameters
-        /// </summary>
-        /// <param name="commandLineParser"></param>
-        /// <returns>True if no problems, false if an error</returns>
-        private static bool SetOptionsUsingCommandLineParameters(clsParseCommandLine commandLineParser)
-        {
-            var validParameters = new List<string> { "I", "Org", "O", "Map", "Organism", "Prot", "Desc", "Verbose" };
-            try
-            {
-                // Make sure no invalid parameters are present
-                if (commandLineParser.InvalidParametersPresent(validParameters))
-                {
-                    ConsoleMsgUtils.ShowErrors("Invalid command line parameters", commandLineParser.InvalidParameters(validParameters));
-                    return false;
-                }
-
-                // Query commandLineParser to see if various parameters are present
-
-                if (commandLineParser.RetrieveValueForParameter("I", out var value))
-                {
-                    mInputFilePath = value;
-                }
-                else if (commandLineParser.NonSwitchParameterCount > 0)
-                {
-                    mInputFilePath = commandLineParser.RetrieveNonSwitchParameter(0);
-                }
-
-                if (commandLineParser.RetrieveValueForParameter("Org", out value))
-                {
-                    mOrganismListFile = value;
-                }
-
-                if (commandLineParser.RetrieveValueForParameter("Organism", out value))
-                {
-                    mOrganismName = value;
-                }
-
-                if (commandLineParser.RetrieveValueForParameter("O", out value))
-                {
-                    mOutputDirectoryPath = value;
-                }
-
-                if (commandLineParser.RetrieveValueForParameter("Prot", out value))
-                {
-                    mProteinListFile = value;
-                }
-
-                if (commandLineParser.IsParameterPresent("Map"))
-                    mCreateProteinToOrganismMapFile = true;
-
-                if (commandLineParser.IsParameterPresent("Desc"))
-                    mSearchProteinDescriptions = true;
-
-                if (commandLineParser.IsParameterPresent("Verbose"))
-                    mVerboseMode = true;
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                ConsoleMsgUtils.ShowError("Error parsing the command line parameters", ex);
-            }
-
-            return false;
-        }
-
-        private static void ShowProgramHelp()
+        private static string GetProgramInfo()
         {
             try
             {
-                var exeName = System.IO.Path.GetFileName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-                ConsoleMsgUtils.WrapParagraph(
-                    "This program reads a FASTA file and filters the proteins " +
-                    "by either organism name or protein name. For organism filtering, " +
-                    "the organism is determined using the protein description lines. " +
-                    "It optionally creates a filtered fasta file containing only the proteins of interest.");
+                var programInfo = new StringBuilder();
 
-                Console.WriteLine();
-                Console.WriteLine("Program mode #1:\n" + exeName + " SourceFile.fasta [/O:OutputDirectoryPath] [/Map] [/Verbose]");
-                Console.WriteLine();
-                Console.WriteLine("Program mode #2:\n" + exeName + " SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputDirectoryPath] [/Verbose]");
-                Console.WriteLine();
-                Console.WriteLine("Program mode #3:\n" + exeName + " SourceFile.fasta /Organism:OrganismName [/O:OutputDirectoryPath] [/Verbose]");
-                Console.WriteLine();
-                Console.WriteLine("Program mode #4:\n" + exeName + " SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputDirectoryPath] [/Desc] [/Verbose]");
+                programInfo.AppendLine(ConsoleMsgUtils.WrapParagraph(
+                    "This program reads a FASTA file and tries to determine the organism and/or taxonomy ID for each protein, " +
+                    "searching for standard organism name formats in protein descriptions. " +
+                    "You can optionally filter the proteins to create a new, filtered FASTA file. " +
+                    "The program also supports filtering by protein name."));
 
-                Console.WriteLine();
-                ConsoleMsgUtils.WrapParagraph(
-                    "The input file name is required. Surround the filename with double quotes if it contains spaces");
+                programInfo.AppendLine();
+                programInfo.AppendLine("There are 5 processing modes:");
 
-                Console.WriteLine();
-                ConsoleMsgUtils.WrapParagraph(
-                    "Mode 1: will find the organisms present in the fasta file, creating an OrganismSummary file. " +
-                    "First looks for a UniProt sequence tag, for example OS=Homo Sapiens. " +
-                    "If that tag is not found, then looks for the name in the last set of square brackets in the protein description. " +
-                    "If OS= is missing and the square brackets are missing, searches the entire description.");
+                programInfo.AppendLine();
+                programInfo.AppendLine("== Mode 1 ==");
+                programInfo.AppendLine();
+                programInfo.AppendLine(ConsoleMsgUtils.WrapParagraph(
+                    "The program will find the organisms present in the FASTA file, creating file SourceFasta_OrganismSummary.txt. " +
+                    "The program first looks for UniProt species tags OS= and OX=, for example OS=Homo Sapiens OX=9606. " +
+                    "If the OS= tag is not found, it looks for the text in the last set of square brackets in the protein description. " +
+                    "If OS= is missing and the square brackets are missing, the program searches the entire description."));
 
-                Console.WriteLine();
-                ConsoleMsgUtils.WrapParagraph(
-                    "Use /Map to also create a file mapping protein name to organism name (filename SourceFasta_ProteinOrganismMap.txt");
+                programInfo.AppendLine();
+                programInfo.AppendLine(ConsoleMsgUtils.WrapParagraph(
+                    "Optionally use /Map to also create a file mapping protein name to organism name\n" +
+                    "(filename SourceFasta_ProteinOrganismMap.txt)"));
 
-                Console.WriteLine();
-                ConsoleMsgUtils.WrapParagraph(
-                    "Mode 2: use /Org to specify a text file listing organism names that should be used for filtering the fasta file. " +
-                    "The program will create a new fasta file that only contains proteins from the organisms of interest");
+                programInfo.AppendLine();
+                programInfo.AppendLine("== Mode 2 ==");
+                programInfo.AppendLine();
+                programInfo.AppendLine(ConsoleMsgUtils.WrapParagraph(
+                    "Use /Org to specify a text file listing organism names or taxonomy IDs that should be used for filtering the FASTA file. " +
+                    "The program will create a new FASTA file that only contains proteins from the organisms of interest."));
 
-                Console.WriteLine();
-                ConsoleMsgUtils.WrapParagraph(
+                programInfo.AppendLine();
+                programInfo.AppendLine(ConsoleMsgUtils.WrapParagraph(
                     "The OrganismListFile should have one organism name per line. " +
-                    "Entries that start with 'RegEx:' will be treated as regular expressions. " +
+                    "Entries that start with 'RegEx:' will be treated as regular expressions to be matched against organism names. " +
+                    "Entries that start with 'TaxId:' will be treated as taxonomy IDs (only applicable if the FASTA file has OX= tags). " +
                     "Names or RegEx values are first matched to UniProt style OS=Organism entries. " +
-                    "If not a match, the protein is skipped. " +
                     "If no OS= entry is present, next looks for an organism name in square brackets. " +
-                    "If no match to a [Organism] tag, the entire protein description is searched.");
+                    "If no match to a [Organism] tag, the entire protein description is searched. " +
+                    "Taxonomy IDs are matched to OX=123456 entries. " +
+                    "If not a match, the protein is skipped."));
 
-                Console.WriteLine();
-                ConsoleMsgUtils.WrapParagraph(
-                    "Mode 3: use /Organism to specify a single organism name to be used for filtering the fasta file. " +
+                programInfo.AppendLine();
+                programInfo.AppendLine("== Mode 3 ==");
+                programInfo.AppendLine();
+                programInfo.AppendLine(ConsoleMsgUtils.WrapParagraph(
+                    "Use /Organism to specify a single organism name to be used for filtering the FASTA file. " +
                     "The * character is treated as a wildcard. " +
-                    "The program will create a new fasta file that only contains proteins from that organism.");
+                    "The program will create a new FASTA file that only contains proteins from that organism."));
 
-                Console.WriteLine();
-                ConsoleMsgUtils.WrapParagraph(
-                    "Mode 4: use /Prot to filter by protein name, using the proteins listed in the given text file. " +
-                    "The program will create a new fasta file that only contains the listed proteins.");
+                programInfo.AppendLine();
+                programInfo.AppendLine("== Mode 4 ==");
+                programInfo.AppendLine();
+                programInfo.AppendLine(ConsoleMsgUtils.WrapParagraph(
+                    "Use /Prot to filter by protein name, using the proteins listed in the given text file. " +
+                    "The program will create a new FASTA file that only contains the listed proteins."));
 
-                Console.WriteLine();
-                ConsoleMsgUtils.WrapParagraph(
+                programInfo.AppendLine();
+                programInfo.AppendLine(ConsoleMsgUtils.WrapParagraph(
                     "The ProteinListFile should have one protein name per line. " +
-                    "Protein names that start with 'RegEx:' will be treated as regular expressions for matching to protein names.");
-                Console.WriteLine();
-                ConsoleMsgUtils.WrapParagraph(
-                    "When using Mode 4, optionally use switch /Desc to indicate that protein descriptions should also be searched");
+                    "Protein names that start with 'RegEx:' will be treated as regular expressions for matching to protein names."));
+                programInfo.AppendLine();
+                programInfo.AppendLine(ConsoleMsgUtils.WrapParagraph(
+                    "When using Mode 4, optionally use switch /Desc to indicate that protein descriptions should also be searched. " +
+                    "By default, the full protein description must match the names in the protein list file. " +
+                    "To match a word inside the description, use a RegEx filter with wildcards, for example 'RegEx:Cytochrome.+' or 'RegEx:.+promoting.+'"));
 
-                Console.WriteLine();
-                ConsoleMsgUtils.WrapParagraph(
-                    "For all 4 modes, use /O to specify an output directory. " +
-                    "If /O is missing, the output files will be created in the same directory as the source file");
+                programInfo.AppendLine();
+                programInfo.AppendLine("== Mode 5 ==");
+                programInfo.AppendLine();
+                programInfo.AppendLine(ConsoleMsgUtils.WrapParagraph(
+                    "Use /Tax to filter by taxonomy ID, using the integers listed in the given text file. " +
+                    "The program will create a new FASTA file that only contains proteins from the taxonomy IDs of interest."));
 
-                Console.WriteLine();
-                ConsoleMsgUtils.WrapParagraph(
-                    "Use /Verbose to see details on each match, including the RegEx expression or search keyword that matches a protein name or description");
+                programInfo.AppendLine();
+                programInfo.AppendLine(ConsoleMsgUtils.WrapParagraph(
+                    "The TaxonomyIdListFile should have one taxonomy ID per line. Taxonomy IDs are integers, e.g. 9606 for homo sapiens."));
 
-                Console.WriteLine();
-                ConsoleMsgUtils.WrapParagraph("Program written by Matthew Monroe for the Department of Energy (PNNL, Richland, WA) in 2010");
+                programInfo.AppendLine();
+                programInfo.AppendLine(ConsoleMsgUtils.WrapParagraph(
+                    "For all 5 modes, use /O to specify an output directory. " +
+                    "If /O is missing, the output files will be created in the same directory as the source file."));
 
-                Console.WriteLine("Version: " + GetAppVersion());
-                Console.WriteLine();
-                Console.WriteLine("E-mail: matthew.monroe@pnnl.gov or proteomics@pnnl.gov");
-                Console.WriteLine("Website: https://omics.pnl.gov/ or https://github.com/pnnl-comp-mass-spec");
-                Console.WriteLine();
-
-                // Delay for 750 msec in case the user double clicked this file from within Windows Explorer (or started the program via a shortcut)
-                System.Threading.Thread.Sleep(750);
+                return programInfo.ToString();
             }
             catch (Exception ex)
             {
-                ConsoleMsgUtils.ShowError("Error displaying the program syntax", ex);
+                ConsoleMsgUtils.ShowError("Error generating the program syntax", ex);
+                return string.Empty;
             }
         }
     }

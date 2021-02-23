@@ -36,26 +36,19 @@ namespace FastaOrganismFilter
         private readonly Regex mFindSpeciesTag;
         private readonly Regex mFindNextTag;
 
-        /// <summary>
-        /// Create a protein to organism map file
-        /// </summary>
-        public bool CreateProteinToOrganismMapFile { get; set; }
 
         /// <summary>
-        /// Also search protein descriptions in addition to protein names
+        /// Processing Options
         /// </summary>
-        public bool SearchProteinDescriptions { get; set; }
-
-        /// <summary>
-        /// Show additional messages when true, including which search term or RegEx resulted in a match
-        /// </summary>
-        public bool VerboseMode { get; set; }
+        public FastaFilterOptions Options { get; }
 
         /// <summary>
         /// Constructor
         /// </summary>
-        public FilterFastaByOrganism()
+        public FilterFastaByOrganism(FastaFilterOptions options)
         {
+            Options = options;
+
             mFindSpeciesTag = new Regex("OS=(.+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
             mFindNextTag = new Regex(" [a-z]+=", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         }
@@ -267,7 +260,7 @@ namespace FastaOrganismFilter
             var baseName = Path.GetFileNameWithoutExtension(inputFilePath);
             var filteredFastaFilePath = Path.Combine(outputDirectory.FullName, baseName + outputFileSuffix + ".fasta");
             StreamWriter matchInfoWriter = null;
-            if (VerboseMode)
+            if (Options.VerboseMode)
             {
                 var matchInfoFilePath = Path.Combine(outputDirectory.FullName, baseName + outputFileSuffix + "_MatchInfo.txt");
                 matchInfoWriter = new StreamWriter(new FileStream(matchInfoFilePath, FileMode.Create, FileAccess.Write, FileShare.Read));
@@ -445,7 +438,7 @@ namespace FastaOrganismFilter
             var baseName = Path.GetFileNameWithoutExtension(inputFilePath);
             var filteredFastaFilePath = Path.Combine(outputDirectory.FullName, baseName + outputFileSuffix + ".fasta");
             StreamWriter matchInfoWriter = null;
-            if (VerboseMode)
+            if (Options.VerboseMode)
             {
                 var matchInfoFilePath = Path.Combine(outputDirectory.FullName, baseName + outputFileSuffix + "_MatchInfo.txt");
                 matchInfoWriter = new StreamWriter(new FileStream(matchInfoFilePath, FileMode.Create, FileAccess.Write, FileShare.Read));
@@ -652,7 +645,7 @@ namespace FastaOrganismFilter
 
         private void ShowOptionalBar(bool topBar)
         {
-            if (!VerboseMode)
+            if (!Options.VerboseMode)
                 return;
 
             if (topBar)
@@ -666,6 +659,86 @@ namespace FastaOrganismFilter
             Console.WriteLine();
         }
 
+        /// <summary>
+        /// Show current processing options
+        /// </summary>
+        /// <returns></returns>
+        public bool ShowCurrentProcessingOptions()
+        {
+            if (string.IsNullOrWhiteSpace(Options.InputFilePath))
+            {
+                ConsoleMsgUtils.ShowWarning("Input file not defined; nothing to do");
+                return false;
+            }
+
+            ShowMessage("{0,-40} {1}", "Input file path:", Options.InputFilePath);
+
+            if (!string.IsNullOrWhiteSpace(Options.OutputDirectoryPath))
+            {
+                ShowMessage("{0,-40} {1}", "Output directory path:", Options.OutputDirectoryPath);
+            }
+
+            if (!string.IsNullOrWhiteSpace(Options.OrganismName))
+            {
+                ShowMessage("{0,-40} {1}", "Organism name filter:", Options.OrganismName);
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Options.OrganismListFile))
+            {
+                ShowMessage("{0,-40} {1}", "Organism list file:", Options.OrganismListFile);
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Options.ProteinListFile))
+            {
+                ShowMessage("{0,-40} {1}", "Protein list file:", Options.ProteinListFile);
+                ShowMessage("{0,-40} {1}", "Search protein descriptions:", Options.SearchProteinDescriptions);
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Options.TaxonomyIdListFile))
+            {
+                ShowMessage("{0,-40} {1}", "Taxonomy ID list file:", Options.TaxonomyIdListFile);
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Process the input file, as defined in Options
+        /// </summary>
+        /// <returns>True if successful, otherwise false</returns>
+        public bool StartProcessing()
+        {
+            if (string.IsNullOrWhiteSpace(Options.InputFilePath))
+            {
+                ConsoleMsgUtils.ShowWarning("Input file not defined; nothing to do");
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Options.OrganismName))
+            {
+                return FilterFastaOneOrganism(Options.InputFilePath, Options.OrganismName, Options.OutputDirectoryPath);
+            }
+
+            if (!string.IsNullOrWhiteSpace(Options.OrganismListFile))
+            {
+                return FilterFastaByOrganismName(Options.InputFilePath, Options.OrganismListFile, Options.OutputDirectoryPath);
+            }
+
+            if (!string.IsNullOrWhiteSpace(Options.ProteinListFile))
+            {
+                return FilterFastaByProteinName(Options.InputFilePath, Options.ProteinListFile, Options.OutputDirectoryPath);
+            }
+
+            if (!string.IsNullOrWhiteSpace(Options.TaxonomyIdListFile))
+            {
+                return FilterFastaByTaxonomyID(Options.InputFilePath, Options.TaxonomyIdListFile, Options.OutputDirectoryPath);
+            }
+
+            return FindOrganismsInFasta(Options.InputFilePath, Options.OutputDirectoryPath);
+        }
         private bool ValidateInputAndOutputDirectories(string inputFilePath, ref string outputDirectoryPath, out DirectoryInfo outputDirectory)
         {
             var sourceFile = new FileInfo(inputFilePath);
