@@ -10,8 +10,8 @@ using ProteinFileReader;
 namespace FastaOrganismFilter
 {
     /// <summary>
-    /// This class reads a fasta file and finds the organism info defined in the protein description lines
-    /// It optionally creates a filtered fasta file containing only the proteins of interest
+    /// This class reads a FASTA file and finds the organism info defined in the protein description lines
+    /// It optionally creates a filtered FASTA file containing only the proteins of interest
     /// </summary>
     /// <remarks>
     /// <para>
@@ -360,7 +360,7 @@ namespace FastaOrganismFilter
 
         // ReSharper disable once SuggestBaseTypeForParameter
         /// <summary>
-        /// Filter the fasta file based on the data in organismNameFilters, regExFilters, or taxonomyIDs
+        /// Filter the FASTA file based on the data in organismNameFilters, regExFilters, or taxonomyIDs
         /// </summary>
         /// <param name="inputFilePath"></param>
         /// <param name="outputDirectory"></param>
@@ -385,7 +385,7 @@ namespace FastaOrganismFilter
 
             if (!reader.OpenFile(inputFilePath))
             {
-                ConsoleMsgUtils.ShowError("Error opening the fasta file; aborting");
+                ConsoleMsgUtils.ShowError("Error opening the FASTA file; aborting");
                 return false;
             }
 
@@ -516,7 +516,7 @@ namespace FastaOrganismFilter
         {
             if (!string.IsNullOrEmpty(species))
             {
-                // UniProt Fasta file with OS= entries
+                // UniProt FASTA file with OS= entries
                 return IsExactOrRegexMatch(reader.ProteinName, species, organismNameFilters, regExFilters, Options.VerboseMode, matchInfoWriter);
             }
 
@@ -621,7 +621,7 @@ namespace FastaOrganismFilter
 
             if (!reader.OpenFile(inputFilePath))
             {
-                ConsoleMsgUtils.ShowError("Error opening the fasta file; aborting");
+                ConsoleMsgUtils.ShowError("Error opening the FASTA file; aborting");
                 return false;
             }
 
@@ -723,7 +723,7 @@ namespace FastaOrganismFilter
 
                 if (!reader.OpenFile(inputFilePath))
                 {
-                    ConsoleMsgUtils.ShowError("Error opening the fasta file; aborting");
+                    ConsoleMsgUtils.ShowError("Error opening the FASTA file; aborting");
                     return false;
                 }
 
