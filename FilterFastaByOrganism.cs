@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using JetBrains.Annotations;
 using PRISM;
 using ProteinFileReader;
 
@@ -987,6 +988,7 @@ namespace FastaOrganismFilter
             Console.WriteLine(message);
         }
 
+        [StringFormatMethod("format")]
         private static void ShowMessage(string format, params object[] arg)
         {
             Console.WriteLine(format, arg);
