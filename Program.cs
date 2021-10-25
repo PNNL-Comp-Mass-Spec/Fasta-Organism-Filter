@@ -16,7 +16,7 @@ namespace FastaOrganismFilter
     /// </para>
     /// <para>
     /// E-mail: matthew.monroe@pnnl.gov or proteomics@pnnl.gov
-    /// Website: https://omics.pnl.gov/ or https://panomics.pnnl.gov/
+    /// Website: https://github.com/PNNL-Comp-Mass-Spec/ or https://panomics.pnnl.gov/ or https://www.pnnl.gov/integrative-omics
     /// </para>
     /// </remarks>
     internal static class Program
@@ -35,7 +35,7 @@ namespace FastaOrganismFilter
                 ProgramInfo = GetProgramInfo(),
                 ContactInfo = "Program written by Matthew Monroe for PNNL (Richland, WA) in 2010" + Environment.NewLine +
                               "E-mail: matthew.monroe@pnnl.gov or proteomics@pnnl.gov" + Environment.NewLine +
-                              "Website: https://omics.pnl.gov/ or https://panomics.pnnl.gov/"
+                              "Website: https://github.com/PNNL-Comp-Mass-Spec/ or https://panomics.pnnl.gov/ or https://www.pnnl.gov/integrative-omics"
             };
 
             cmdLineParser.UsageExamples.Add("Program syntax:" + Environment.NewLine + exeName + "\n" +
