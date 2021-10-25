@@ -21,9 +21,9 @@ namespace FastaOrganismFilter
     /// </remarks>
     internal static class Program
     {
-        public const string PROGRAM_DATE = "February 24, 2021";
+        public const string PROGRAM_DATE = "October 25, 2021";
 
-        // Ignore Spelling: Prot, Desc, UniProt, Conf
+        // Ignore Spelling: Conf, Desc, Prot, sapiens, UniProt, wildcards
 
         public static int Main(string[] args)
         {
