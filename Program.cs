@@ -21,7 +21,7 @@ namespace FastaOrganismFilter
     /// </remarks>
     internal static class Program
     {
-        public const string PROGRAM_DATE = "October 25, 2021";
+        public const string PROGRAM_DATE = "November 11, 2021";
 
         // Ignore Spelling: Conf, Desc, Prot, sapiens, UniProt, wildcards
 
@@ -30,15 +30,16 @@ namespace FastaOrganismFilter
             var programName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name;
             var exePath = PRISM.FileProcessor.ProcessFilesOrDirectoriesBase.GetAppPath();
             var exeName = Path.GetFileName(exePath);
-            var cmdLineParser = new CommandLineParser<FastaFilterOptions>(programName, GetAppVersion())
+
+            var parser = new CommandLineParser<FastaFilterOptions>(programName, GetAppVersion())
             {
                 ProgramInfo = GetProgramInfo(),
-                ContactInfo = "Program written by Matthew Monroe for PNNL (Richland, WA) in 2010" + Environment.NewLine +
+                ContactInfo = "Program written by Matthew Monroe for PNNL (Richland, WA)" + Environment.NewLine +
                               "E-mail: matthew.monroe@pnnl.gov or proteomics@pnnl.gov" + Environment.NewLine +
                               "Website: https://github.com/PNNL-Comp-Mass-Spec/ or https://panomics.pnnl.gov/ or https://www.pnnl.gov/integrative-omics"
             };
 
-            cmdLineParser.UsageExamples.Add("Program syntax:" + Environment.NewLine + exeName + "\n" +
+            parser.UsageExamples.Add("Program syntax:" + Environment.NewLine + exeName + "\n" +
                                             " /I:InputFileNameOrDirectoryPath [/O:OutputDirectoryPath] [/Map]\n" +
                                             " [/Org:OrganismListFile.txt]\n" +
                                             " [/Organism:OrganismName]\n" +
@@ -46,21 +47,27 @@ namespace FastaOrganismFilter
                                             " [/Tax:TaxonomyIdListFile.txt]\n" +
                                             " [/Verbose]");
 
-            cmdLineParser.UsageExamples.Add("Program mode #1:\n" + exeName + " SourceFile.fasta [/O:OutputDirectoryPath] [/Map]");
-            cmdLineParser.UsageExamples.Add("Program mode #2:\n" + exeName + " SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputDirectoryPath] [/Verbose]");
-            cmdLineParser.UsageExamples.Add("Program mode #3:\n" + exeName + " SourceFile.fasta /Organism:OrganismName [/O:OutputDirectoryPath]");
-            cmdLineParser.UsageExamples.Add("Program mode #4:\n" + exeName + " SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputDirectoryPath] [/Desc]");
-            cmdLineParser.UsageExamples.Add("Program mode #5:\n" + exeName + " SourceFile.fasta /Tax:TaxonomyIdListFile.txt [/O:OutputDirectoryPath]");
+            parser.UsageExamples.Add("Program mode #1:\n" + exeName + " SourceFile.fasta [/O:OutputDirectoryPath] [/Map]");
+            parser.UsageExamples.Add("Program mode #2:\n" + exeName + " SourceFile.fasta /Org:OrganismListFile.txt [/O:OutputDirectoryPath] [/Verbose]");
+            parser.UsageExamples.Add("Program mode #3:\n" + exeName + " SourceFile.fasta /Organism:OrganismName [/O:OutputDirectoryPath]");
+            parser.UsageExamples.Add("Program mode #4:\n" + exeName + " SourceFile.fasta /Prot:ProteinListFile.txt [/O:OutputDirectoryPath] [/Desc]");
+            parser.UsageExamples.Add("Program mode #5:\n" + exeName + " SourceFile.fasta /Tax:TaxonomyIdListFile.txt [/O:OutputDirectoryPath]");
 
             // The default argument name for parameter files is /ParamFile or -ParamFile
             // Also allow /Conf or /P
-            cmdLineParser.AddParamFileKey("Conf");
-            cmdLineParser.AddParamFileKey("P");
+            parser.AddParamFileKey("Conf");
+            parser.AddParamFileKey("P");
 
-            var result = cmdLineParser.ParseArgs(args);
+            var result = parser.ParseArgs(args);
             var options = result.ParsedResults;
+
             if (!result.Success || !options.Validate())
             {
+                if (parser.CreateParamFileProvided)
+                {
+                    return 0;
+                }
+
                 // Delay for 750 msec in case the user double clicked this file from within Windows Explorer (or started the program via a shortcut)
                 System.Threading.Thread.Sleep(750);
                 return -1;
