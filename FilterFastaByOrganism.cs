@@ -110,12 +110,12 @@ namespace FastaOrganismFilter
         /// <summary>
         /// Search for the organism info, assuming it is the last text seen between two square brackets
         /// </summary>
-        /// <param name="proteinDescription"></param>
-        /// <returns>Organism name if found, otherwise empty string</returns>
         /// <remarks>
         /// However, there are exceptions we have to consider, for example
         /// [Salmonella enterica subsp. enterica serovar 4,[5],12:i:-]
         /// </remarks>
+        /// <param name="proteinDescription"></param>
+        /// <returns>Organism name if found, otherwise empty string</returns>
         private string ExtractOrganism(string proteinDescription)
         {
             var indexEnd = proteinDescription.LastIndexOf(']');
@@ -1013,7 +1013,6 @@ namespace FastaOrganismFilter
         /// <summary>
         /// Show current processing options
         /// </summary>
-        /// <returns></returns>
         public bool ShowCurrentProcessingOptions()
         {
             if (string.IsNullOrWhiteSpace(Options.InputFilePath))

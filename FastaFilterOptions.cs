@@ -86,8 +86,8 @@ namespace FastaOrganismFilter
         /// <summary>
         /// Validate the options
         /// </summary>
-        /// <returns>True if all options are valid</returns>
         /// <remarks>This method is called from Program.cs</remarks>
+        /// <returns>True if all options are valid</returns>
         // ReSharper disable once UnusedMember.Global
         public bool Validate()
         {
